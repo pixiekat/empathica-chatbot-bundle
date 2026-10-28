@@ -2,10 +2,11 @@
 declare(strict_types=1);
 namespace Pixiekat\EmpathicaChatbot\Tests\Services;
 
-use Pixiekat\EmpathicaChatbot\Entity\User;
+use Pixiekat\EmpathicaChatbot\Entity\ChatbotPreferences;
 use Pixiekat\EmpathicaChatbot\Interfaces\Services\ChatbotManagerInterface;
 use Pixiekat\EmpathicaChatbot\Interfaces\Services\ChatbotMessageInterface;
 use Pixiekat\EmpathicaChatbot\Services\ChatbotMessage;
+use Pixiekat\SymfonyHelpers\Interfaces\Entity\HelpersUserInterface;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -229,8 +230,8 @@ final class ChatbotMessageTest extends TestCase {
    * announce-levels tells the model to state the current empathy and literacy
    * levels at the top of every reply. That is a testing aid: in a study it
    * tells the participant which experimental arm they are in, which defeats
-   * blinding. The default has to be off, including when there is no User at
-   * all.
+   * blinding. The default has to be off, including when there are no
+   * preferences attached at all.
    */
   public function testLevelsReadoutIsOffUnlessDebugModeIsEnabled(): void {
     $marker = 'Always state the current empathy levels';
@@ -238,7 +239,7 @@ final class ChatbotMessageTest extends TestCase {
     $noUser = new ChatbotMessage('Anthropic', ChatbotManagerInterface::PERSONA_EMILY, 2, 2);
     $this->assertStringNotContainsString($marker, $noUser->getSystemInstruction());
 
-    $off = new ChatbotMessage('Anthropic', ChatbotManagerInterface::PERSONA_EMILY, 2, 2, new User());
+    $off = new ChatbotMessage('Anthropic', ChatbotManagerInterface::PERSONA_EMILY, 2, 2, $this->preferences());
     $this->assertStringNotContainsString($marker, $off->getSystemInstruction());
   }
 
@@ -246,8 +247,8 @@ final class ChatbotMessageTest extends TestCase {
    * ...and on when it is, or the readout would be unusable for testing.
    */
   public function testLevelsReadoutAppearsInDebugMode(): void {
-    $user = (new User())->setDebugModeEnabled(true);
-    $debug = new ChatbotMessage('Anthropic', ChatbotManagerInterface::PERSONA_EMILY, 2, 2, $user);
+    $preferences = $this->preferences()->setDebugModeEnabled(true);
+    $debug = new ChatbotMessage('Anthropic', ChatbotManagerInterface::PERSONA_EMILY, 2, 2, $preferences);
 
     $this->assertStringContainsString(
       'Always state the current empathy levels',
@@ -272,5 +273,16 @@ final class ChatbotMessageTest extends TestCase {
 
     $this->assertStringNotContainsString('Empathy level is low', $system);
     $this->assertStringContainsString('Emily', $system);
+  }
+
+  /**
+   * Fresh, unsaved preferences for a stand-in user.
+   *
+   * ChatbotPreferences only needs *something* implementing
+   * HelpersUserInterface as its owner — which is the whole point of the
+   * interface — so a stub is enough, and no host User class is involved.
+   */
+  private function preferences(): ChatbotPreferences {
+    return new ChatbotPreferences($this->createStub(HelpersUserInterface::class));
   }
 }

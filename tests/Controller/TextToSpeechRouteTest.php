@@ -34,10 +34,13 @@ final class TextToSpeechRouteTest extends KernelTestCase {
    * The sentinel round-trip the template relies on.
    */
   public function testUrlTemplateCanBeBuiltFromASentinel(): void {
-    $url = $this->generator()->generate('app_tts', ['id' => 3, 'part' => 999999999]);
+    $url = $this->generator()->generate('empathica_chatbot_tts', ['id' => 3, 'part' => 999999999]);
 
-    $this->assertSame('/tts/3/999999999', $url);
-    $this->assertSame('/tts/3/__PART__', str_replace('999999999', '__PART__', $url));
+    // assertStringEndsWith, not assertSame: the bundle's routes are mounted
+    // under whatever prefix the host chooses (/chat in Infosage), and this
+    // test is about the route's own shape, not the host's mount point.
+    $this->assertStringEndsWith('/tts/3/999999999', $url);
+    $this->assertStringEndsWith('/tts/3/__PART__', str_replace('999999999', '__PART__', $url));
   }
 
   /**
@@ -46,7 +49,7 @@ final class TextToSpeechRouteTest extends KernelTestCase {
    */
   public function testNonNumericPartIsRejected(): void {
     $this->expectException(\Symfony\Component\Routing\Exception\InvalidParameterException::class);
-    $this->generator()->generate('app_tts', ['id' => 3, 'part' => '__PART__']);
+    $this->generator()->generate('empathica_chatbot_tts', ['id' => 3, 'part' => '__PART__']);
   }
 
   /**
@@ -57,6 +60,6 @@ final class TextToSpeechRouteTest extends KernelTestCase {
    * would rewrite the *message index* instead.
    */
   public function testDefaultPartIsOmittedFromTheUrl(): void {
-    $this->assertSame('/tts/3', $this->generator()->generate('app_tts', ['id' => 3]));
+    $this->assertStringEndsWith('/tts/3', $this->generator()->generate('empathica_chatbot_tts', ['id' => 3]));
   }
 }
