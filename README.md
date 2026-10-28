@@ -89,6 +89,60 @@ These Twig functions are available to any host template, for example a chat widg
 - `chatbot_conversations()` and `chatbot_conversation_counts()`: the current user's recent threads.
 - `|chatbot_markdown`: renders a stored message safely (it escapes HTML first).
 
+## Floating chat widget
+
+A launcher button that opens the chat over any page, without leaving it. Include it once, near the end of the host layout's `<body>`:
+
+```twig
+{{ include('@PixiekatEmpathicaChatbot/widget/_launcher.html.twig') }}
+```
+
+It renders nothing for anonymous users, or on the bundle's own `/chat` pages.
+
+| Mode | When | Behaviour |
+|---|---|---|
+| Popup | Desktop, by default | Docked bottom-right, non-modal: the page behind stays usable, and the popup stays open across Turbo page visits. |
+| Full screen | The **Full screen** button, and always on mobile | A modal `<dialog>`: the page behind is inert, focus stays inside, Escape closes it. The choice is remembered for the browser session. |
+| Full page | The **Open full page** link | The normal `/chat` page. The conversation carries over, because the active thread is kept in the session. |
+
+### Options
+
+| Variable | Default | |
+|---|---|---|
+| `mobile_launcher` | `true` | Show the floating circle on small screens. Pass `false` when the host has its own way in on mobile, such as a bottom-nav item. |
+| `mobile_query` | `'(max-width: 768px)'` | What counts as mobile (always full screen). Match the host's breakpoint; widget.css uses 768px for the launcher and expand button, so mirror a different value with your own CSS rule. |
+
+```twig
+{{ include('@PixiekatEmpathicaChatbot/widget/_launcher.html.twig', {'mobile_launcher': false}) }}
+```
+
+### Opening it from your own controls
+
+Any link or button with `data-empathica-chatbot-open` opens the widget. Make it a real link to the chat, so it still works without JavaScript:
+
+```twig
+<a href="{{ path('empathica_chatbot_index') }}" data-empathica-chatbot-open aria-label="Chat">…</a>
+```
+
+### Overriding the launcher
+
+The template is built from blocks: `launcher`, `launcher_icon`, `launcher_label`, `panel_header`, `panel_title`, `panel_loading`, `widget_stylesheets` and `widget_javascripts`. To change some of them, create `templates/bundles/PixiekatEmpathicaChatbotBundle/widget/_launcher.html.twig` in the host and extend the original (the `!` skips your override and loads the bundle's own file):
+
+```twig
+{% extends '@!PixiekatEmpathicaChatbot/widget/_launcher.html.twig' %}
+{% block launcher_icon %}<i class="fa-solid fa-user-doctor"></i>{% endblock %}
+```
+
+Keep the `data-empathica-chatbot-*` attributes and the frame id, because `widget.js` and the frame layout depend on them. Colours are `--chatbot-widget-*` custom properties on `.empathica-chatbot-widget`, so most re-theming needs only CSS.
+
+### How it works
+
+The panel holds a `<turbo-frame id="empathica-chatbot-widget-frame" src="/chat/" loading="lazy">`, so nothing loads until the panel is first opened. Turbo sends a `Turbo-Frame` header with every request from the frame, and keeps it through redirects. When that header is present, `chatbot/layout.html.twig` extends the slim `chatbot/frame.html.twig` instead of the host layout (see `chatbot_is_widget_frame()`). The chat runs on the same routes, controllers, CSRF tokens and session as the full page. `Vary: Turbo-Frame` is added to chatbot responses, so caches keep the two versions apart.
+
+**Requirements:** Turbo (`symfony/ux-turbo`) in the host and a browser with `<dialog>`. Without either, the launcher stays a plain link to the full-page chat.
+
+**Graceful degradation:** the launcher and every control in the panel are real links. With JavaScript off, or without Turbo, they go to the full-page chat, which works as plain HTML forms.
+
 ## Access control
 
 | Voter attribute | Granted when |
@@ -103,7 +157,7 @@ Setting `features.admin: false` hides the admin menu entry **and** makes `/chat/
 
 ## Graceful degradation
 
-Everything works without JavaScript. The chat is a plain POST, redirect, GET form. The conversation panel opens with CSS `:target`. Read-aloud falls back to the browser's `speechSynthesis`, and silently to nothing if that's missing. The script only adds enhancements (loading indicator, focus management, Escape to close, Gemini voices), and it re-initialises on Turbo navigations.
+Everything works without JavaScript. The chat is a plain POST, redirect, GET form, and the floating widget's launcher is a plain link to it. The conversation panel opens with CSS `:target`. Read-aloud falls back to the browser's `speechSynthesis`, and silently to nothing if that's missing. The script only adds enhancements (loading indicator, focus management, Escape to close, Gemini voices), and it re-initialises on Turbo navigations.
 
 ## Prompts
 

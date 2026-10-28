@@ -22,8 +22,15 @@
   for (and marks once wired up, so Turbo navigations re-initialise cleanly).
 
   Pages extend THIS and fill {% block chatbot_body %}.
+
+  ── Inside the floating widget ───────────────────────────────────────────────
+  When the request comes from the widget's <turbo-frame> (Turbo sends a
+  Turbo-Frame header; see Twig\Extension\WidgetExtension), this extends the
+  slim chatbot/frame.html.twig instead of the host layout, so the chat renders
+  without the host's navigation wrapped around it. Every block below works the
+  same in both modes.
 #}
-{% extends chatbot_layout %}
+{% extends chatbot_is_widget_frame() ? '@PixiekatEmpathicaChatbot/chatbot/frame.html.twig' : chatbot_layout %}
 
 {% block title %}{{ 'chatbot.title'|trans({}, 'empathica_chatbot') }}{% endblock %}
 
@@ -63,7 +70,11 @@
         <a class="btn btn-link" href="{{ path('empathica_chatbot_preferences') }}">{{ 'chatbot.toolbar.settings'|trans({}, 'empathica_chatbot') }}</a>
 
         {% if is_granted(constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Security\\Voter\\DefaultVoterInterface::ADMIN_ACCESS_ADMIN_FUNCTIONS')) %}
-          <a class="btn btn-link" href="{{ path('empathica_chatbot_admin_users') }}">{{ 'chatbot.toolbar.admin'|trans({}, 'empathica_chatbot') }}</a>
+          {# data-turbo-frame="_top": the researcher screens are wide tables
+             meant for a full page, so from inside the widget this link leaves
+             the frame and navigates the whole window. On a full page the
+             attribute does nothing. #}
+          <a class="btn btn-link" href="{{ path('empathica_chatbot_admin_users') }}" data-turbo-frame="_top">{{ 'chatbot.toolbar.admin'|trans({}, 'empathica_chatbot') }}</a>
         {% endif %}
       </nav>
 

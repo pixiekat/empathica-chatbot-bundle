@@ -1,0 +1,50 @@
+{#
+  Slim layout for chat pages rendered INSIDE the floating widget.
+
+  ── When this is used ───────────────────────────────────────────────────────
+  chatbot/layout.html.twig extends this instead of the host's layout whenever
+  chatbot_is_widget_frame() is true, i.e. the request came from the widget's
+  <turbo-frame> (see Twig\Extension\WidgetExtension). Every other request,
+  including every request made with JavaScript off, still gets the full host
+  page, so nothing here is ever the only way to reach the chat.
+
+  ── Why so little markup ────────────────────────────────────────────────────
+  Turbo takes the response, finds the <turbo-frame> with the matching id, and
+  swaps only its contents into the widget. Anything outside that element would
+  be thrown away, so there is no <html>, <head>, host navigation or footer:
+  just the frame, holding the same three blocks the host layout provides
+  (`stylesheets`, `body`, `javascripts`) so chatbot/layout.html.twig can fill
+  them exactly as it does on a full page.
+
+  ── Flash messages ──────────────────────────────────────────────────────────
+  The host layout normally renders flashes ("Preferences saved.", "The chatbot
+  is temporarily unavailable…"). It isn't rendered here, so they're shown
+  inside the frame instead. Otherwise they'd sit unread in the session and
+  pop up on the user's next full page load, long after the moment they
+  referred to.
+#}
+<turbo-frame id="{{ chatbot_widget_frame_id() }}">
+  {% block stylesheets %}{% endblock %}
+
+  {% set flash_classes = {
+    'success': 'alert-success',
+    'error': 'alert-danger',
+    'warning': 'alert-warning',
+    'info': 'alert-info',
+  } %}
+  {% for label, messages in app.flashes %}
+    {% for message in messages %}
+      {# Errors and warnings interrupt (role="alert"); confirmations wait for a
+         pause (role="status"), so a screen reader isn't cut off mid-sentence
+         just to hear "Preferences saved." #}
+      <div class="alert {{ flash_classes[label]|default('alert-info') }} empathica-chatbot-widget--flash"
+           role="{{ label in ['error', 'warning'] ? 'alert' : 'status' }}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endfor %}
+
+  {% block body %}{% endblock %}
+
+  {% block javascripts %}{% endblock %}
+</turbo-frame>

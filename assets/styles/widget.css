@@ -1,0 +1,344 @@
+/*
+ * EMPATHICA chatbot: floating chat widget styles.
+ *
+ * Loaded with a plain <link> by templates/widget/_launcher.html.twig, so the
+ * host needs no import or importmap entry. Pairs with assets/widget.js.
+ *
+ * SCOPING
+ * -------
+ * Everything is under .empathica-chatbot-widget or carries a fully prefixed
+ * class, like chatbot.css, so none of it can restyle the host page.
+ *
+ * THEMING
+ * -------
+ * The --chatbot-widget-* custom properties below are the whole palette. A
+ * host matches its own look by setting them, e.g. in its own stylesheet:
+ *
+ *   .empathica-chatbot-widget { --chatbot-widget-accent: var(--color-accent); }
+ *
+ * BREAKPOINT
+ * ----------
+ * The 768px media queries here match the include's default mobile_query. A
+ * host that passes a different mobile_query should mirror it with its own
+ * rule for .empathica-chatbot-widget--no-mobile-launcher.
+ */
+
+.empathica-chatbot-widget {
+  --chatbot-widget-accent: #005F6B;
+  --chatbot-widget-accent-fg: #ffffff;
+  --chatbot-widget-surface: #ffffff;
+  --chatbot-widget-surface-fg: #1f2937;
+  --chatbot-widget-header-bg: #005F6B;
+  --chatbot-widget-header-fg: #ffffff;
+  --chatbot-widget-border: rgba(0, 0, 0, .15);
+  --chatbot-widget-shadow: 0 .75rem 2.5rem rgba(0, 0, 0, .25);
+  --chatbot-widget-radius: 1rem;
+  /* The gap between the popup / launcher and the window edge. */
+  --chatbot-widget-offset: 1.5rem;
+  --chatbot-widget-launcher-size: 3.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .empathica-chatbot-widget {
+    --chatbot-widget-surface: #0A1F44;
+    --chatbot-widget-surface-fg: #ffffff;
+    --chatbot-widget-border: rgba(255, 255, 255, .25);
+  }
+}
+
+/* An explicit Bootstrap theme on the host wins over the OS preference, in
+   both directions, matching chatbot.css. */
+[data-bs-theme="dark"] .empathica-chatbot-widget {
+  --chatbot-widget-surface: #0A1F44;
+  --chatbot-widget-surface-fg: #ffffff;
+  --chatbot-widget-border: rgba(255, 255, 255, .25);
+}
+
+[data-bs-theme="light"] .empathica-chatbot-widget {
+  --chatbot-widget-surface: #ffffff;
+  --chatbot-widget-surface-fg: #1f2937;
+  --chatbot-widget-border: rgba(0, 0, 0, .15);
+}
+
+/* ------------------------------------------------------------------
+   Launcher: the floating circle.
+   ------------------------------------------------------------------ */
+.empathica-chatbot-launcher {
+  position: fixed;
+  right: var(--chatbot-widget-offset);
+  /* env(): keeps it clear of the home indicator on notched phones. */
+  bottom: calc(var(--chatbot-widget-offset) + env(safe-area-inset-bottom, 0px));
+  z-index: 1045;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 56px: comfortably above the 44px minimum touch target, for people with
+     tremor or reduced dexterity. */
+  width: var(--chatbot-widget-launcher-size);
+  height: var(--chatbot-widget-launcher-size);
+  border-radius: 50%;
+  background-color: var(--chatbot-widget-accent);
+  color: var(--chatbot-widget-accent-fg);
+  box-shadow: var(--chatbot-widget-shadow);
+  font-size: 1.5rem;
+  text-decoration: none;
+  /* A transparent border becomes visible in Windows High Contrast / forced
+     colours mode, where backgrounds and shadows are removed. Without it the
+     circle would vanish there. */
+  border: 2px solid transparent;
+}
+
+.empathica-chatbot-launcher:hover {
+  color: var(--chatbot-widget-accent-fg);
+  filter: brightness(1.1);
+}
+
+/* A thick, two-tone ring, so the focus indicator shows on any background. */
+.empathica-chatbot-launcher:focus-visible {
+  outline: 3px solid var(--chatbot-widget-accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px #ffffff, var(--chatbot-widget-shadow);
+}
+
+/* The label. It's the launcher's accessible name at all times, and shows as
+   a tooltip pill on hover or keyboard focus. Hidden with the visually-hidden
+   technique, NOT display:none, because display:none would take it away from
+   screen readers too and leave the button nameless. */
+.empathica-chatbot-launcher--label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.empathica-chatbot-launcher:hover .empathica-chatbot-launcher--label,
+.empathica-chatbot-launcher:focus-visible .empathica-chatbot-launcher--label {
+  right: calc(100% + .75rem);
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  padding: .4rem .75rem;
+  border-radius: .5rem;
+  background-color: var(--chatbot-widget-surface-fg);
+  color: var(--chatbot-widget-surface);
+  font-size: 1rem;
+  line-height: 1.3;
+  box-shadow: var(--chatbot-widget-shadow);
+}
+
+/* The host has its own way in on mobile (a bottom-nav item). Hidden outright
+   here: it's a duplicate entry point, not the only one. */
+@media (max-width: 768px) {
+  .empathica-chatbot-widget--no-mobile-launcher .empathica-chatbot-launcher {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Panel: popup mode (the default).
+   ------------------------------------------------------------------ */
+.empathica-chatbot-widget--panel {
+  /* Docked above the launcher, so the launcher stays visible and can close
+     it again. */
+  position: fixed;
+  inset: auto var(--chatbot-widget-offset) calc(var(--chatbot-widget-offset) * 2 + var(--chatbot-widget-launcher-size)) auto;
+  z-index: 1060;
+  margin: 0;
+  padding: 0;
+  width: min(26rem, calc(100vw - var(--chatbot-widget-offset) * 2));
+  height: min(42rem, calc(100vh - var(--chatbot-widget-offset) * 3 - var(--chatbot-widget-launcher-size)));
+  max-width: none;
+  max-height: none;
+  overflow: hidden;
+  border: 1px solid var(--chatbot-widget-border);
+  border-radius: var(--chatbot-widget-radius);
+  background-color: var(--chatbot-widget-surface);
+  color: var(--chatbot-widget-surface-fg);
+  box-shadow: var(--chatbot-widget-shadow);
+  /*
+    Makes the panel the containing block for position:fixed descendants.
+    chatbot.css positions the conversation switcher and the "thinking"
+    overlay as fixed to the viewport; inside the widget they should cover
+    the panel, not the whole window. Any transform does this, and
+    translate(0) moves nothing.
+  */
+  transform: translate(0);
+}
+
+/* Only an open dialog is laid out. Setting display on the closed state
+   would override the browser's own dialog:not([open]) { display: none }
+   and show the panel when it shouldn't be. */
+.empathica-chatbot-widget--panel[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------------------------------------------
+   Panel: full-screen mode (expanded, and always on mobile).
+   ------------------------------------------------------------------ */
+.empathica-chatbot-widget--panel.is-fullscreen {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* dvh tracks mobile browsers' collapsing address bar; vh alone can leave
+     the message box hidden under it. 100% above is the fallback. */
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.empathica-chatbot-widget--panel::backdrop {
+  background: rgba(0, 0, 0, .5);
+}
+
+/* While full screen (a modal), stop the page behind from scrolling, so a
+   swipe inside the chat can't scroll the hidden page instead. Browsers
+   without :has() just keep the page scrollable, which is harmless. */
+html:has(.empathica-chatbot-widget--panel.is-fullscreen[open]) {
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------
+   Header.
+   ------------------------------------------------------------------ */
+.empathica-chatbot-widget--header {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .75rem 1rem;
+  background-color: var(--chatbot-widget-header-bg);
+  color: var(--chatbot-widget-header-fg);
+}
+
+.empathica-chatbot-widget--title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: inherit;
+}
+
+/* The title takes programmatic focus when the panel opens before the chat
+   has loaded; it isn't interactive, so no focus ring is needed. */
+.empathica-chatbot-widget--title:focus {
+  outline: none;
+}
+
+.empathica-chatbot-widget--actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+}
+
+/* Icon AND a visible word on every action. Icons alone ("is that a square
+   for full screen or for stop?") are a known stumbling block for older users. */
+.empathica-chatbot-widget--action {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  min-height: 2.75rem; /* 44px touch target */
+  padding: .25rem .6rem;
+  border: 1px solid rgba(255, 255, 255, .6);
+  border-radius: .5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: .95rem;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.empathica-chatbot-widget--action:hover {
+  background-color: rgba(255, 255, 255, .15);
+  color: inherit;
+}
+
+.empathica-chatbot-widget--action:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* On mobile, full screen is the only mode, so the toggle would do nothing. */
+@media (max-width: 768px) {
+  .empathica-chatbot-widget--expand {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Body: the scrolling area that holds the chat's <turbo-frame>.
+   ------------------------------------------------------------------ */
+.empathica-chatbot-widget--body {
+  flex: 1 1 auto;
+  min-height: 0; /* lets a flex child actually scroll instead of growing */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .75rem 1rem 1rem;
+}
+
+.empathica-chatbot-widget--frame {
+  display: block;
+}
+
+.empathica-chatbot-widget--loading {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.empathica-chatbot-widget--flash {
+  margin: 0 0 .75rem;
+}
+
+/* ------------------------------------------------------------------
+   The chat, adjusted for a narrow popup.
+
+   The chat page is laid out for a full window: an 8-of-12 column centred
+   with an offset, generous margins, and wide speech bubbles. In a 26rem
+   popup the viewport is still desktop-sized, so those desktop rules apply
+   and squeeze it. Scoped to popup mode only; full screen keeps the page
+   layout.
+   ------------------------------------------------------------------ */
+.empathica-chatbot-widget--panel:not(.is-fullscreen) .empathica-chatbot [class*="col-md-"] {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
+}
+
+.empathica-chatbot-widget--panel:not(.is-fullscreen) .empathica-chatbot [class*="offset-md-"] {
+  margin-left: 0;
+}
+
+.empathica-chatbot-widget--panel:not(.is-fullscreen) .empathica-chatbot .mt-5 {
+  margin-top: 1rem !important;
+}
+
+.empathica-chatbot-widget--panel:not(.is-fullscreen) .empathica-chatbot .message.message--question .chatbot--message {
+  padding: .75rem 1rem;
+}
+
+/* The conversation switcher is fixed-positioned and sized against the
+   viewport (85vw); inside the panel it's sized against the panel instead. */
+.empathica-chatbot-widget--panel .empathica-chatbot .conversation--panel {
+  width: min(22rem, 85%);
+}
+
+/* ------------------------------------------------------------------
+   Motion: only for people who haven't asked for less of it.
+   ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+  .empathica-chatbot-widget--panel[open] {
+    animation: empathica-chatbot-widget-in .18s ease-out;
+  }
+
+  @keyframes empathica-chatbot-widget-in {
+    from { opacity: 0; translate: 0 .75rem; }
+    to   { opacity: 1; translate: 0 0; }
+  }
+}

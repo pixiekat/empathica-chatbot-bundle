@@ -418,7 +418,14 @@ function initChatForm() {
     return;
   }
 
-  form.removeAttribute('action');
+  // Not inside the floating widget, though. A form without an action posts to
+  // the *document's* URL, and inside the widget's <turbo-frame> the document
+  // is whatever host page the widget is floating over (/dashboard, say), so
+  // the message would be posted to the wrong controller. There the explicit
+  // action is the only thing pointing back at the chat.
+  if (!form.closest('turbo-frame')) {
+    form.removeAttribute('action');
+  }
 
   form.addEventListener('submit', function () {
     const wrapper = document.querySelector('[data-empathica-chatbot] .loading-widget-wrapper');
@@ -470,6 +477,10 @@ function initConversationPanel() {
 
   const onKeydown = (event) => {
     if (event.key === 'Escape') {
+      // Inside the floating widget, Escape would also close the widget's
+      // <dialog> (that's the browser's default action for the key). One press
+      // should close one thing, the innermost, so cancel that default.
+      event.preventDefault();
       close();
     }
   };
@@ -479,11 +490,14 @@ function initConversationPanel() {
     toggle.setAttribute('aria-expanded', 'true');
 
     backdrop = document.createElement('div');
-    // Appended to <body>, outside the chatbot root, so its class name is
-    // fully prefixed rather than relying on scoping.
+    // Appended outside the chatbot root, so its class name is fully prefixed
+    // rather than relying on scoping. Normally that's <body>; inside the
+    // widget it's the widget's <dialog>, because a modal dialog sits in the
+    // browser's top layer, above everything in <body>, so a body-level
+    // backdrop would be hidden behind it and unclickable.
     backdrop.className = 'empathica-chatbot-backdrop';
     backdrop.addEventListener('click', close);
-    document.body.appendChild(backdrop);
+    (panel.closest('dialog') ?? document.body).appendChild(backdrop);
 
     document.addEventListener('keydown', onKeydown);
 
@@ -544,10 +558,39 @@ function initChatbot() {
   initConversationPanel();
   initReadAloud();
   initCopyToClipboard();
+  initFrameLinks(root);
   goToLatestMessage();
 }
 
+/**
+ * Inside the floating widget, send links in the assistant's answers to the
+ * whole window rather than the widget's frame.
+ *
+ * A link inside a <turbo-frame> navigates only that frame by default. That's
+ * right for the chat's own toolbar, but a link the model wrote (a pharmacy
+ * leaflet, a clinic page) points at a page that has no matching frame, and
+ * Turbo would show an empty "Content missing" box. data-turbo-frame="_top"
+ * makes those links behave like ordinary links.
+ *
+ * Does nothing on a full page, where there is no frame to escape from.
+ */
+function initFrameLinks(root) {
+  if (!root.closest('turbo-frame')) {
+    return;
+  }
+
+  root.querySelectorAll('.response-text a[href]').forEach((link) => {
+    link.dataset.turboFrame = '_top';
+  });
+}
+
 document.addEventListener('turbo:load', initChatbot);
+
+// The floating widget loads the chat into a <turbo-frame>, and every message
+// sent from it reloads that frame without a page visit, so turbo:load never
+// fires. turbo:frame-load does, once per frame render, and the readiness
+// marker on the fresh root keeps it from double-binding.
+document.addEventListener('turbo:frame-load', initChatbot);
 
 // Module scripts are deferred, so on a normal page load this file usually runs
 // before DOMContentLoaded. If it was inserted later (a Turbo render), that event

@@ -90,9 +90,13 @@ class ChatController extends AbstractController {
       }
     }
 
+    // 422 for an invalid submit, for the same Turbo reason as index():
+    // a 200 answer to a form POST is discarded with "Form responses must
+    // redirect to another location", so the validation errors would never
+    // appear.
     return $this->render('@PixiekatEmpathicaChatbot/chatbot/set-prefs.html.twig', [
       'form' => $form->createView(),
-    ]);
+    ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
   }
 
   #[IsGranted(Interfaces\Security\Voter\DefaultVoterInterface::CAN_VIEW_HISTORY, message: 'You do not have permission to view chat history.')]
@@ -286,13 +290,17 @@ class ChatController extends AbstractController {
           max(1, $limit->getRetryAfter()->getTimestamp() - time())
         ));
 
+        // 429 rather than the default 200. Turbo (Drive and the widget's
+        // frame alike) refuses to render a 200 answer to a form POST
+        // ("Form responses must redirect to another location") but does
+        // render a 4xx, and 429 is the honest status for a throttled request.
         return $this->render('@PixiekatEmpathicaChatbot/chatbot/index.html.twig', [
           'conversation' => $conversation,
           'transcript' => $conversation ? $conversation->getMessages() : [],
           'form' => $form->createView(),
           'persona' => $persona,
           'chatbot' => $chatbot,
-        ]);
+        ], new Response(status: Response::HTTP_TOO_MANY_REQUESTS));
       }
 
       // Created lazily, on the first message, so the list never fills with
@@ -400,13 +408,17 @@ class ChatController extends AbstractController {
     // The switcher's contents are no longer passed from here: it lives in the
     // navbar, which every page renders, so it is fed by the user_conversations()
     // Twig function instead. Only the *active* thread is action-specific.
+    // A submitted form only reaches this point when it was invalid or empty
+    // (every successful path redirects above), so answer 422. Turbo refuses
+    // to render a 200 answer to a form POST but does render a 4xx; a plain GET
+    // still gets 200.
     return $this->render('@PixiekatEmpathicaChatbot/chatbot/index.html.twig', [
       'conversation' => $conversation,
       'transcript' => $conversation ? $conversation->getMessages() : [],
       'form' => $form->createView(),
       'persona' => $persona,
       'chatbot' => $chatbot,
-    ]);
+    ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
   }
 
   /**

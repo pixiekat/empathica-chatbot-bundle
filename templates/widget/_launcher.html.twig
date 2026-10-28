@@ -1,0 +1,176 @@
+{#
+  EMPATHICA floating chat widget: a launcher button plus the panel it opens.
+
+  ── Using it ────────────────────────────────────────────────────────────────
+  Include it once, near the end of the host layout's <body>:
+
+    {{ include('@PixiekatEmpathicaChatbot/widget/_launcher.html.twig') }}
+
+  Options (all optional):
+
+    mobile_launcher  (bool, default true)
+        Show the floating circle on small screens. Pass false when the host
+        has its own way in on mobile, such as a bottom-navigation item. Any
+        link or button carrying `data-empathica-chatbot-open` opens the
+        widget, so the host can put that attribute on its own nav item.
+
+    mobile_query     (string, default '(max-width: 768px)')
+        The media query that counts as "mobile". On mobile the chat always
+        opens full screen. Match it to the host's own breakpoint.
+
+  It renders nothing for anonymous users, and nothing on the bundle's own
+  pages: on /chat the chat already fills the page.
+
+  ── Overriding it ───────────────────────────────────────────────────────────
+  Copy to templates/bundles/PixiekatEmpathicaChatbotBundle/widget/_launcher.html.twig
+  to replace it entirely, or override single blocks by extending the
+  original (the "!" skips the override and loads the bundle's own file):
+
+    {% extends '@!PixiekatEmpathicaChatbot/widget/_launcher.html.twig' %}
+    {% block launcher_icon %}<i class="fa-solid fa-user-doctor" aria-hidden="true"></i>{% endblock %}
+
+  Keep the data-empathica-chatbot-* attributes and the frame id: widget.js
+  and the chat's frame layout look for them.
+
+  ── How it degrades ─────────────────────────────────────────────────────────
+  The launcher is a real link to the chat page. widget.js upgrades it to open
+  the panel instead, but only when the browser has <dialog> and Turbo is
+  loaded. Without either (or with JavaScript off) the link simply goes to the
+  full-page chat, which works as plain HTML forms. The panel itself stays
+  closed and hidden, so a browser that can't run it never shows it.
+
+  ── Modes ───────────────────────────────────────────────────────────────────
+    popup       A panel docked bottom-right over the page. Non-modal: the page
+                behind stays usable, and the panel survives Turbo page visits.
+    fullscreen  The same panel filling the viewport as a modal dialog (the
+                page behind is inert and focus stays inside). Chosen with the
+                expand button on desktop, and always used on mobile.
+    full page   The "Open full page" link goes to /chat itself.
+#}
+{% set chatbot_route = app.request.attributes.get('_route')|default('') %}
+{% if is_granted('ROLE_USER') and not (chatbot_route starts with 'empathica_chatbot_') %}
+  {% set mobile_launcher = mobile_launcher ?? true %}
+  {% set mobile_query = mobile_query ?? '(max-width: 768px)' %}
+  {% set chat_url = path('empathica_chatbot_index') %}
+
+  {# Stylesheets as plain <link>s, so the host needs no import or importmap
+     entry. <link rel="stylesheet"> is valid in <body>. chatbot.css is the
+     chat's own styling, needed for what loads into the panel. #}
+  {% block widget_stylesheets %}
+    <link rel="stylesheet" href="{{ asset('empathica-chatbot/styles/chatbot.css') }}">
+    <link rel="stylesheet" href="{{ asset('empathica-chatbot/styles/widget.css') }}">
+  {% endblock %}
+
+  {#
+    data-turbo-permanent + a fixed id: Turbo carries this element, and
+    whatever conversation is loaded in its frame, across page visits instead
+    of rebuilding it. An open popup therefore stays open while the user moves
+    around the site. It needs the same id on every page, which is why the
+    widget should be included from the shared layout.
+  #}
+  <div id="empathica-chatbot-widget"
+       class="empathica-chatbot-widget{{ mobile_launcher ? '' : ' empathica-chatbot-widget--no-mobile-launcher' }}"
+       data-empathica-chatbot-widget
+       data-mobile-query="{{ mobile_query }}"
+       data-turbo-permanent>
+
+    {% block launcher %}
+      {# A link, not a button, on purpose: with no JavaScript it must still
+         take the user to the chat. aria-expanded / aria-haspopup are only
+         added by widget.js once it's actually able to open the panel, so a
+         plain-link fallback never claims to open a popup. #}
+      <a class="empathica-chatbot-launcher"
+         href="{{ chat_url }}"
+         data-empathica-chatbot-open
+         aria-controls="empathica-chatbot-widget-panel">
+        <span class="empathica-chatbot-launcher--icon" aria-hidden="true">
+          {% block launcher_icon %}<i class="fa-solid fa-comment-medical"></i>{% endblock %}
+        </span>
+        {# The accessible name, and the visible tooltip on hover/focus. A bare
+           icon is not a label: older users in particular can't be expected
+           to know what a speech bubble does. #}
+        <span class="empathica-chatbot-launcher--label">
+          {% block launcher_label %}{{ 'chatbot.widget.open'|trans({}, 'empathica_chatbot') }}{% endblock %}
+        </span>
+      </a>
+    {% endblock %}
+
+    {#
+      The panel. A native <dialog>, so the browser provides the hard parts:
+      show() for the non-modal popup, showModal() for full screen (top layer,
+      inert background, Escape to close, focus kept inside).
+      Without the `open` attribute it's hidden by the browser's own styles, so
+      it can never appear half-working when widget.js can't run.
+    #}
+    <dialog id="empathica-chatbot-widget-panel"
+            class="empathica-chatbot-widget--panel"
+            aria-labelledby="empathica-chatbot-widget-title">
+
+      {% block panel_header %}
+        <header class="empathica-chatbot-widget--header">
+          <h2 id="empathica-chatbot-widget-title" class="empathica-chatbot-widget--title">
+            {% block panel_title %}{{ 'chatbot.widget.title'|trans({}, 'empathica_chatbot') }}{% endblock %}
+          </h2>
+
+          <div class="empathica-chatbot-widget--actions">
+            {# Expand / restore. aria-pressed reports the state, and the visible
+               label changes with it (see widget.js), so the state is never
+               carried by the icon alone. Hidden on mobile, where full screen
+               is the only mode. #}
+            <button type="button" class="empathica-chatbot-widget--action empathica-chatbot-widget--expand"
+                    data-empathica-chatbot-expand aria-pressed="false"
+                    data-label-expand="{{ 'chatbot.widget.expand'|trans({}, 'empathica_chatbot') }}"
+                    data-label-restore="{{ 'chatbot.widget.restore'|trans({}, 'empathica_chatbot') }}">
+              <i class="fa-solid fa-expand" aria-hidden="true"></i>
+              <span class="empathica-chatbot-widget--action-label">{{ 'chatbot.widget.expand'|trans({}, 'empathica_chatbot') }}</span>
+            </button>
+
+            {# A plain link: leaves the widget for the full /chat page. The
+               conversation carries over because the active thread is kept in
+               the session, not in the widget. #}
+            <a class="empathica-chatbot-widget--action" href="{{ chat_url }}" data-empathica-chatbot-full-page>
+              <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
+              <span class="empathica-chatbot-widget--action-label">{{ 'chatbot.widget.full_page'|trans({}, 'empathica_chatbot') }}</span>
+            </a>
+
+            <button type="button" class="empathica-chatbot-widget--action empathica-chatbot-widget--close" data-empathica-chatbot-close>
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              <span class="empathica-chatbot-widget--action-label">{{ 'chatbot.widget.close'|trans({}, 'empathica_chatbot') }}</span>
+            </button>
+          </div>
+        </header>
+      {% endblock %}
+
+      <div class="empathica-chatbot-widget--body">
+        {#
+          The chat, loaded on demand. loading="lazy" means Turbo only fetches
+          src once the frame becomes visible, i.e. the first time the panel
+          opens, so pages where nobody opens the chat cost no extra request.
+
+          Everything between the tags is a placeholder shown until the chat
+          arrives. It includes a full-page link in case the frame can't load
+          (offline, server error).
+        #}
+        <turbo-frame id="{{ chatbot_widget_frame_id() }}" src="{{ chat_url }}" loading="lazy"
+                     class="empathica-chatbot-widget--frame" aria-busy="true">
+          {% block panel_loading %}
+            <div class="empathica-chatbot-widget--loading" role="status">
+              <p>{{ 'chatbot.widget.loading'|trans({}, 'empathica_chatbot') }}</p>
+              <p><a href="{{ chat_url }}" data-turbo-frame="_top">{{ 'chatbot.widget.loading_fallback'|trans({}, 'empathica_chatbot') }}</a></p>
+            </div>
+          {% endblock %}
+        </turbo-frame>
+      </div>
+    </dialog>
+  </div>
+
+  {# Module scripts run once per page however often the tag reappears, and are
+     deferred, so they never block rendering. Browsers without module support
+     skip them and keep the plain links. chatbot.js is the chat's own
+     enhancement script (read-aloud, loading indicator...), needed for what
+     loads into the panel. #}
+  {% block widget_javascripts %}
+    <script type="module" src="{{ asset('empathica-chatbot/chatbot.js') }}"></script>
+    <script type="module" src="{{ asset('empathica-chatbot/widget.js') }}"></script>
+  {% endblock %}
+{% endif %}

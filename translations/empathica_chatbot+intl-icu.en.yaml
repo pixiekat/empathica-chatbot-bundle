@@ -27,3 +27,14 @@ chatbot:
   response:
     read_aloud: "Read Response Aloud"
     copy_clipboard: "Copy Response to Clipboard"
+  # The floating widget (templates/widget/_launcher.html.twig).
+  widget:
+    # The launcher's accessible name and hover/focus tooltip.
+    open: "Chat with EMPATHICA"
+    title: "EMPATHICA"
+    expand: "Full screen"
+    restore: "Exit full screen"
+    full_page: "Open full page"
+    close: "Close"
+    loading: "Loading the chat…"
+    loading_fallback: "Taking a while? Open the chat in a full page instead."
