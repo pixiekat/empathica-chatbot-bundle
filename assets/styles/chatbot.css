@@ -1,0 +1,312 @@
+/*
+ * EMPATHICA chatbot — component styles.
+ *
+ * Loaded with a plain <link> by the bundle's layout, so the host needs no
+ * import or importmap entry for the chat to look right.
+ *
+ * WHAT IS NOT HERE ANY MORE
+ * -------------------------
+ * The standalone app's stylesheet also styled body, a, nav.navbar, every
+ * form input, and its own dark-mode / larger-font body classes. Inside a host
+ * those are the host's look and feel; restyling them from a bundle would
+ * change Infosage pages the moment the chat CSS loaded.
+ *
+ * SCOPING
+ * -------
+ * Everything is nested under .empathica-chatbot (the chat's root element) or
+ * carries a fully prefixed class name, because the original names — .dot,
+ * .leaf, .play, .status-text — are generic enough that a host could easily
+ * use them for something else.
+ *
+ * COLOURS
+ * -------
+ * Custom properties with light defaults, swapped for dark under either the
+ * OS preference or Bootstrap 5.3's [data-bs-theme="dark"]. A host can
+ * override any --chatbot-* property to match its own palette without
+ * touching this file.
+ */
+
+.empathica-chatbot {
+  --chatbot-panel-bg: #f5f4ed;
+  --chatbot-panel-fg: inherit;
+  --chatbot-panel-border: rgba(0, 0, 0, .15);
+  --chatbot-hover-bg: rgba(0, 0, 0, .06);
+  --chatbot-current-bg: rgba(0, 0, 0, .09);
+  --chatbot-bubble-bg: #ffffff;
+  --chatbot-bubble-border: #000000;
+  --chatbot-widget-bg: #ffffff;
+  --chatbot-widget-fg: #374151;
+  --chatbot-accent: #22c55e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .empathica-chatbot {
+    --chatbot-panel-bg: #005F6B;
+    --chatbot-panel-fg: #ffffff;
+    --chatbot-panel-border: rgba(255, 255, 255, .25);
+    --chatbot-hover-bg: rgba(255, 255, 255, .14);
+    --chatbot-current-bg: rgba(255, 255, 255, .14);
+    --chatbot-bubble-bg: #0A1F44;
+    --chatbot-bubble-border: rgba(255, 255, 255, .5);
+    --chatbot-widget-bg: #0A1F44;
+    --chatbot-widget-fg: #ffffff;
+  }
+}
+
+/* An explicit Bootstrap theme on the host wins over the OS preference, in
+   both directions — a host that forces light should get light. */
+[data-bs-theme="dark"] .empathica-chatbot {
+  --chatbot-panel-bg: #005F6B;
+  --chatbot-panel-fg: #ffffff;
+  --chatbot-panel-border: rgba(255, 255, 255, .25);
+  --chatbot-hover-bg: rgba(255, 255, 255, .14);
+  --chatbot-current-bg: rgba(255, 255, 255, .14);
+  --chatbot-bubble-bg: #0A1F44;
+  --chatbot-bubble-border: rgba(255, 255, 255, .5);
+  --chatbot-widget-bg: #0A1F44;
+  --chatbot-widget-fg: #ffffff;
+}
+
+[data-bs-theme="light"] .empathica-chatbot {
+  --chatbot-panel-bg: #f5f4ed;
+  --chatbot-panel-fg: inherit;
+  --chatbot-panel-border: rgba(0, 0, 0, .15);
+  --chatbot-hover-bg: rgba(0, 0, 0, .06);
+  --chatbot-current-bg: rgba(0, 0, 0, .09);
+  --chatbot-bubble-bg: #ffffff;
+  --chatbot-bubble-border: #000000;
+  --chatbot-widget-bg: #ffffff;
+  --chatbot-widget-fg: #374151;
+}
+
+/* ------------------------------------------------------------------
+   Transcript.
+   ------------------------------------------------------------------ */
+.empathica-chatbot .conversations {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The patient's own turns sit on the right in a bubble, so the two sides of
+   the exchange are distinguishable without relying on colour alone. */
+.empathica-chatbot .message.message--question {
+  text-align: right;
+}
+
+.empathica-chatbot .message.message--question .chatbot--message {
+  display: inline-block;
+  padding: 20px 50px 10px;
+  background-color: var(--chatbot-bubble-bg);
+  border: 1px solid var(--chatbot-bubble-border);
+  border-radius: 20px;
+}
+
+/* ------------------------------------------------------------------
+   "EMPATHICA is thinking…" widget.
+
+   Hidden until chatbot.js reveals it on submit. With JavaScript off it is
+   never shown, and the plain form post simply takes as long as it takes.
+   ------------------------------------------------------------------ */
+.empathica-chatbot .loading-widget-wrapper {
+  visibility: hidden;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 1050;
+}
+
+.empathica-chatbot .loading-widget {
+  background: var(--chatbot-widget-bg);
+  color: var(--chatbot-widget-fg);
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  position: relative;
+  left: -50%;
+}
+
+.empathica-chatbot .loading-widget-body {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 30px;
+}
+
+.empathica-chatbot .leaf {
+  width: 60px;
+  height: 60px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.empathica-chatbot .leaf-1 {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  border-radius: 0 100% 0 100%;
+  animation: empathicaLeafFloat 2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.empathica-chatbot .leaf-2 {
+  background: linear-gradient(135deg, #34d399, #10b981);
+  border-radius: 100% 0 100% 0;
+  animation: empathicaLeafFloat 2s ease-in-out infinite 0.5s;
+  transform-origin: center;
+  opacity: 0.8;
+}
+
+.empathica-chatbot .leaf-3 {
+  background: linear-gradient(135deg, #6ee7b7, #34d399);
+  border-radius: 50% 0 50% 50%;
+  animation: empathicaLeafFloat 2s ease-in-out infinite 1s;
+  transform-origin: center;
+  opacity: 0.6;
+  width: 45px;
+  height: 45px;
+}
+
+/* Keyframe names are global too, hence the prefix. */
+@keyframes empathicaLeafFloat {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  25%      { transform: translate(-50%, -60%) rotate(5deg) scale(1.05); }
+  50%      { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  75%      { transform: translate(-40%, -50%) rotate(-5deg) scale(0.95); }
+}
+
+.empathica-chatbot .pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100px;
+  height: 100px;
+  border: 2px solid var(--chatbot-accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: empathicaPulseRing 2s ease-out infinite;
+  opacity: 0;
+}
+
+@keyframes empathicaPulseRing {
+  0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+}
+
+.empathica-chatbot .status-text {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.empathica-chatbot .typing-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 15px;
+}
+
+.empathica-chatbot .dot {
+  width: 8px;
+  height: 8px;
+  background: var(--chatbot-accent);
+  border-radius: 50%;
+  animation: empathicaTypingDots 1.4s ease-in-out infinite both;
+}
+
+.empathica-chatbot .dot:nth-child(1) { animation-delay: -0.32s; }
+.empathica-chatbot .dot:nth-child(2) { animation-delay: -0.16s; }
+.empathica-chatbot .dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes empathicaTypingDots {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40%           { transform: scale(1.2); opacity: 1; }
+}
+
+/* ------------------------------------------------------------------
+   Conversation switcher.
+
+   Off-canvas by DEFAULT, not as an enhancement — otherwise every page load
+   paints the open panel for a frame before JavaScript hides it.
+
+   Opening is done with :target, so the "Conversations" control works as a
+   plain anchor with no JavaScript at all. chatbot.js layers the rest on top
+   (backdrop, Escape, focus management, aria-expanded) via .is-open.
+   ------------------------------------------------------------------ */
+.empathica-chatbot .conversation--panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(22rem, 85vw);
+  z-index: 1045;
+  padding: 1rem;
+  overflow-y: auto;
+  border-right: 1px solid var(--chatbot-panel-border);
+  background-color: var(--chatbot-panel-bg);
+  color: var(--chatbot-panel-fg);
+  transform: translateX(-100%);
+  transition: transform .25s ease;
+}
+
+.empathica-chatbot .conversation--panel:target,
+.empathica-chatbot .conversation--panel.is-open {
+  transform: translateX(0);
+  box-shadow: 0 0 2rem rgba(0, 0, 0, .35);
+}
+
+.empathica-chatbot .conversation--close {
+  text-decoration: none;
+}
+
+.empathica-chatbot .conversation--list-item + .conversation--list-item {
+  margin-top: .25rem;
+}
+
+.empathica-chatbot .conversation--list-item a {
+  display: block;
+  padding: .5rem .75rem;
+  border-radius: .375rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.empathica-chatbot .conversation--list-item a:hover,
+.empathica-chatbot .conversation--list-item a:focus-visible {
+  background-color: var(--chatbot-hover-bg);
+}
+
+.empathica-chatbot .conversation--list-item.is-current a {
+  background-color: var(--chatbot-current-bg);
+  font-weight: 600;
+}
+
+.empathica-chatbot .conversation--meta {
+  font-size: .85em;
+}
+
+/* Appended to <body> by chatbot.js, so outside the scoped root. */
+.empathica-chatbot-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background: rgba(0, 0, 0, .4);
+}
+
+/* Vestibular safety: honour a reduced-motion preference by cutting the slide
+   and the looping "thinking" animations entirely, rather than merely
+   shortening them. The status text still announces the wait. */
+@media (prefers-reduced-motion: reduce) {
+  .empathica-chatbot .conversation--panel {
+    transition: none;
+  }
+
+  .empathica-chatbot .leaf,
+  .empathica-chatbot .pulse-ring,
+  .empathica-chatbot .dot {
+    animation: none;
+  }
+}

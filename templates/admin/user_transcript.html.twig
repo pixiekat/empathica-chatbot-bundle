@@ -1,0 +1,56 @@
+{# One conversation, read in full. See users.html.twig for why this extends admin_layout. #}
+{% extends admin_layout %}
+
+{% block admin_page_title %}{{ conversation.title|default('chatbot.untitled'|trans({}, 'empathica_chatbot')) }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+    <a href="{{ path('empathica_chatbot_admin_user_conversations', {'id': conversation.user.id}) }}">&larr; Conversations for {{ conversation.user.userIdentifier }}</a>
+    <a class="btn btn-outline-primary btn-sm" href="{{ path('empathica_chatbot_admin_transcript_export', {'id': conversation.id}) }}">
+      <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export this conversation (CSV)
+    </a>
+  </div>
+
+  <p class="text-muted">
+    Started {{ conversation.createdAt|date('j M Y, H:i') }}
+    &middot; persona {{ conversation.persona }}
+    {% if conversation.promptVersion %}&middot; prompt {{ conversation.promptVersion }}{% endif %}
+  </p>
+
+  <table class="table">
+    <caption class="visually-hidden">Messages in order</caption>
+    <thead>
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">Speaker</th>
+        <th scope="col">Message</th>
+        <th scope="col">Conditions</th>
+        <th scope="col">Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for message in messages %}
+        <tr>
+          <td>{{ message.sequence }}</td>
+          <td>{{ message.fromUser ? 'User' : 'EMPATHICA' }}</td>
+          {# chatbot_markdown escapes any HTML in the stored message before
+             rendering markdown — both halves are untrusted (one typed by the
+             user, one emitted by a model the user prompted), and an admin
+             reading someone else's transcript must not execute it. See
+             MessageExtensionRuntime::parseMarkdown(). #}
+          <td>{{ message.content|chatbot_markdown|raw }}</td>
+          <td class="small text-muted">
+            {% if not message.fromUser %}
+              {{ message.provider }}{% if message.modelId %} ({{ message.modelId }}){% endif %}<br>
+              literacy {{ message.literacyLevel ?? '–' }}, empathy {{ message.empathyLevel ?? '–' }}
+              {% if message.totalTokens is not null %}<br>{{ message.totalTokens }} tokens{% endif %}
+              {% if message.latencyMs is not null %}, {{ (message.latencyMs / 1000)|number_format(1) }}s{% endif %}
+              {% if message.wasTruncated %}<br><strong>Cut off ({{ message.finishReason }})</strong>{% endif %}
+            {% endif %}
+          </td>
+          <td>{{ message.createdAt|date('H:i:s') }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

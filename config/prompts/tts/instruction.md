@@ -1,0 +1,1 @@
+Read the following text aloud clearly and warmly, exactly as written, without adding or omitting anything. Pronounce EMPATHICA as EM-PATH-EH-CA. Text to read: {{ text }}

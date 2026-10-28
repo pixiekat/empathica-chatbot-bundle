@@ -1,0 +1,54 @@
+{# One user's conversations. See users.html.twig for why this extends admin_layout. #}
+{% extends admin_layout %}
+
+{% block admin_page_title %}Conversations for {{ user.userIdentifier }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+    <a href="{{ path('empathica_chatbot_admin_users') }}">&larr; All users</a>
+    <a class="btn btn-outline-primary btn-sm" href="{{ path('empathica_chatbot_admin_user_export', {'id': user.id}) }}">
+      <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export this user's messages (CSV)
+    </a>
+  </div>
+
+  {% if conversations is empty %}
+    <div class="alert alert-info">No conversations found for this user.</div>
+  {% else %}
+    <table class="table table-sm">
+      <caption class="visually-hidden">Conversations for {{ user.userIdentifier }}, most recently active first</caption>
+      <thead>
+        <tr>
+          <th scope="col">Title</th>
+          <th scope="col">Messages</th>
+          <th scope="col">Model</th>
+          <th scope="col">Persona</th>
+          <th scope="col">Levels <span class="visually-hidden">(literacy / empathy at start)</span></th>
+          <th scope="col">Started</th>
+          <th scope="col">Last active</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for conversation in conversations %}
+          <tr>
+            <td>
+              <a href="{{ path('empathica_chatbot_admin_transcript', {'id': conversation.id}) }}">{{ conversation.title|default('chatbot.untitled'|trans({}, 'empathica_chatbot')) }}</a>
+              {% if conversation.imported %}<em class="text-muted" title="Reconstructed from the pre-threading log, grouped by day">(imported)</em>{% endif %}
+            </td>
+            <td>{{ messageCounts[conversation.id]|default(0) }}</td>
+            <td>{{ conversation.chatbotModel }}</td>
+            <td>{{ conversation.persona }}</td>
+            {# The conditions the thread STARTED under. Per-message values are
+               the record for analysis — see the note on the Conversation entity. #}
+            <td>{{ conversation.literacyLevel ?? '–' }} / {{ conversation.empathyLevel ?? '–' }}</td>
+            <td>{{ conversation.createdAt|date('j M Y, H:i') }}</td>
+            <td>{{ conversation.lastActivityAt|date('j M Y, H:i') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {{ include('@PixiekatEmpathicaChatbot/admin/_partials/pagination.html.twig', {
+      route: 'empathica_chatbot_admin_user_conversations', params: {'id': user.id}, currentPage: currentPage, totalPages: totalPages,
+    }) }}
+  {% endif %}
+{% endblock %}

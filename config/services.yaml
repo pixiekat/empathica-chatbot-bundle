@@ -1,0 +1,132 @@
+# Services for the EMPATHICA chatbot bundle.
+#
+# Loaded by EmpathicaChatbotExtension::load(). Every %empathica_chatbot.*%
+# parameter below is published by that extension from the host's
+# config/packages/empathica_chatbot.yaml — this file never reads an environment
+# variable itself. That is deliberate: a bundle that reads %env(GEMINI_API_KEY)%
+# directly would be dictating the host's variable names. See Configuration.php.
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    # Explicit service privacy: nothing here is meant to be fetched from the
+    # container by id. Bundle services are private unless they say otherwise.
+    public: false
+
+    # Bindings apply to every service AND to controller action arguments, which
+    # is how ChatController::index() and TextToSpeechController::speak() receive
+    # the bundle's own (prefixed) rate limiters by their existing argument names.
+    bind:
+      $chatMessageLimiter: '@limiter.empathica_chatbot_chat_message'
+      $textToSpeechLimiter: '@limiter.empathica_chatbot_text_to_speech'
+
+  # Tag every chat provider so ProviderRegistry can collect them without a
+  # hand-maintained list. Writing a new class that implements the interface is
+  # the entire registration step — the switch statements this replaced had six
+  # places to remember, and forgetting one produced a working-looking request
+  # rather than an error.
+  _instanceof:
+    Pixiekat\EmpathicaChatbot\Interfaces\Services\ChatProviderInterface:
+      tags: ['empathica_chatbot.chat_provider']
+
+  Pixiekat\EmpathicaChatbot\:
+    resource: '../src/'
+    exclude:
+      - '../src/DependencyInjection/'
+      - '../src/Entity/'
+      - '../src/PixiekatEmpathicaChatbotBundle.php'
+      - '../src/training_data/'
+      # Value objects and exceptions, not services. They take plain strings and
+      # arrays that nothing could autowire, and they are constructed by the code
+      # that needs them rather than pulled from the container.
+      - '../src/Chatbot/ChatReply.php'
+      - '../src/Chatbot/ChatRequest.php'
+      - '../src/Chatbot/Exception/'
+
+  # The system prompt text lives in Markdown files. The directory defaults to
+  # the bundle's own config/prompts; empathica_chatbot.prompts_dir lets a host
+  # point at an edited copy without forking. See PromptRepository.
+  Pixiekat\EmpathicaChatbot\Services\PromptRepository:
+    arguments:
+      $promptDir: '%empathica_chatbot.prompts_dir%'
+
+  Pixiekat\EmpathicaChatbot\Services\ChatbotPreferencesManager:
+    arguments:
+      $defaultProvider: '%empathica_chatbot.default_provider%'
+
+  Pixiekat\EmpathicaChatbot\Form\PreferencesType:
+    arguments:
+      $selectableProviders: '%empathica_chatbot.selectable_providers%'
+
+  Pixiekat\EmpathicaChatbot\Security\Voter\DefaultVoter:
+    arguments:
+      $adminEnabled: '%empathica_chatbot.features.admin%'
+      $adminRole: '%empathica_chatbot.admin_role%'
+
+  # Gemini text-to-speech. Shares the "chatbot" Monolog channel so synthesis
+  # calls sit alongside the chat calls they belong to, and cache.app so the
+  # audio for a given answer is only paid for once.
+  Pixiekat\EmpathicaChatbot\Services\TextToSpeechManager:
+    arguments:
+      $apiKey: '%empathica_chatbot.tts.api_key%'
+      $enabled: '%empathica_chatbot.tts.enabled%'
+      $model: '%empathica_chatbot.tts.model%'
+      $voice: '%empathica_chatbot.tts.voice%'
+      $logger: '@monolog.logger.chatbot'
+      $cache: '@cache.app'
+
+  # ---------------------------------------------------------------------------
+  # Chat providers. One class per LLM API; see src/Chatbot/Provider/.
+  #
+  # Each gets ONLY its own credential, so a provider nobody selected never has
+  # another provider's key in scope. Nothing else needs declaring — they are
+  # autowired and auto-tagged by the _instanceof rule above.
+  # ---------------------------------------------------------------------------
+
+  Pixiekat\EmpathicaChatbot\Chatbot\Provider\AnthropicProvider:
+    arguments:
+      $apiKey: '%empathica_chatbot.anthropic.api_key%'
+      $promptCacheTtl: '%empathica_chatbot.anthropic.prompt_cache_ttl%'
+
+  Pixiekat\EmpathicaChatbot\Chatbot\Provider\GeminiProvider:
+    arguments:
+      $apiKey: '%empathica_chatbot.gemini.api_key%'
+
+  Pixiekat\EmpathicaChatbot\Chatbot\Provider\OpenAiProvider:
+    arguments:
+      $apiKey: '%empathica_chatbot.openai.api_key%'
+
+  Pixiekat\EmpathicaChatbot\Chatbot\Provider\MistralProvider:
+    arguments:
+      $apiKey: '%empathica_chatbot.mistral.api_key%'
+
+  # EmpathicaAgent takes no API key: it authenticates with a Google-signed OIDC
+  # identity token and discovers its own endpoint from the Cloud Run Admin API,
+  # caching the result in cache.app for an hour.
+  Pixiekat\EmpathicaChatbot\Chatbot\Provider\EmpathicaProvider:
+    arguments:
+      $config: '%empathica_chatbot.empathica%'
+      $cache: '@cache.app'
+      $logger: '@monolog.logger.chatbot'
+
+  # Collects everything tagged above and indexes it by getName(), so a stored
+  # ChatbotPreferences.provider value resolves without a switch statement.
+  Pixiekat\EmpathicaChatbot\Chatbot\ProviderRegistry:
+    arguments:
+      $providers: !tagged_iterator empathica_chatbot.chat_provider
+
+  # ChatbotManager holds per-request runtime state (provider/persona/levels)
+  # on the instance after configure(). `shared: false` hands out a fresh
+  # instance on every injection, so that state cannot leak between requests
+  # or between two calls within one request.
+  Pixiekat\EmpathicaChatbot\Services\ChatbotManager:
+    shared: false
+    arguments:
+      # Every outbound provider REST call is logged to its own channel.
+      $logger: '@monolog.logger.chatbot'
+
+  # Controllers log failed provider calls to the same channel.
+  Pixiekat\EmpathicaChatbot\Controller\ChatController:
+    arguments:
+      $logger: '@monolog.logger.chatbot'

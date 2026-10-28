@@ -1,0 +1,17 @@
+# Routes for the EMPATHICA chatbot bundle.
+#
+# Import from the host with a prefix of its choosing, e.g. in
+# config/routes/empathica_chatbot.yaml:
+#
+#   empathica_chatbot:
+#     resource: '@PixiekatEmpathicaChatbotBundle/config/routes.yaml'
+#     prefix: /chat
+#
+# Every route name starts with `empathica_chatbot_`, so nothing here can
+# collide with a host route. Admin routes live under {prefix}/admin and are
+# gated by the bundle's voter (features.admin + admin_role).
+empathica_chatbot_controllers:
+  resource:
+    path: ../src/Controller/
+    namespace: Pixiekat\EmpathicaChatbot\Controller
+  type: attribute

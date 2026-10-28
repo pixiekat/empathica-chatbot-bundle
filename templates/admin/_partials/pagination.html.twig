@@ -1,0 +1,31 @@
+{#
+  Plain-link pagination for the admin lists. No JavaScript: every page is a
+  normal GET, so it works everywhere and each page is bookmarkable.
+
+  Expects: route, params (extra route params, may be {}), currentPage, totalPages.
+#}
+{% if totalPages > 1 %}
+  <nav class="mt-4" aria-label="Pages">
+    <ul class="pagination justify-content-center flex-wrap">
+      {% if currentPage > 1 %}
+        <li class="page-item"><a class="page-link" href="{{ path(route, params|merge({'page': currentPage - 1})) }}" rel="prev">&laquo; Previous</a></li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link" aria-disabled="true">&laquo; Previous</span></li>
+      {% endif %}
+
+      {% for p in 1..totalPages %}
+        {% if p == currentPage %}
+          <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
+        {% else %}
+          <li class="page-item"><a class="page-link" href="{{ path(route, params|merge({'page': p})) }}" aria-label="Go to page {{ p }}">{{ p }}</a></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if currentPage < totalPages %}
+        <li class="page-item"><a class="page-link" href="{{ path(route, params|merge({'page': currentPage + 1})) }}" rel="next">Next &raquo;</a></li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link" aria-disabled="true">Next &raquo;</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+{% endif %}

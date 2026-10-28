@@ -1,0 +1,61 @@
+{#
+  Everyone who has at least one conversation.
+
+  Extends `admin_layout` — the Twig global published by the SymfonyHelpers
+  bundle (symfony_helpers.admin_layout) — so this renders inside the HOST's
+  control panel, with the host's branding and menu. The "Chatbot" menu entry
+  itself comes from Pixiekat\EmpathicaChatbot\Services\AdminNav.
+
+  Users are shown by getUserIdentifier(), the only display handle
+  HelpersUserInterface guarantees; the bundle never assumes the host's user
+  has an email or display-name field.
+#}
+{% extends admin_layout %}
+
+{% block admin_page_title %}Chatbot conversations{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+    <p class="mb-2 mb-md-0">
+      {{ totalItems }} {{ totalItems == 1 ? 'person has' : 'people have' }} chatted with EMPATHICA.
+    </p>
+    {# A plain link: Content-Disposition makes the browser download it. #}
+    <a class="btn btn-outline-primary btn-sm" href="{{ path('empathica_chatbot_admin_export') }}">
+      <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export every message (CSV)
+    </a>
+  </div>
+
+  {% if rows is empty %}
+    <div class="alert alert-info">Nobody has started a conversation yet.</div>
+  {% else %}
+    <table class="table table-sm">
+      <caption class="visually-hidden">Users with chatbot conversations, most recently active first</caption>
+      <thead>
+        <tr>
+          <th scope="col">User</th>
+          <th scope="col">Conversations</th>
+          <th scope="col">Last active</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.user.userIdentifier }}</td>
+            <td>{{ row.conversationCount }}</td>
+            <td>{{ row.lastActivityAt|date('j M Y, H:i') }}</td>
+            <td>
+              <a href="{{ path('empathica_chatbot_admin_user_conversations', {'id': row.user.id}) }}">
+                <i class="fa-solid fa-comments" aria-hidden="true"></i> View conversations<span class="visually-hidden"> for {{ row.user.userIdentifier }}</span>
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {{ include('@PixiekatEmpathicaChatbot/admin/_partials/pagination.html.twig', {
+      route: 'empathica_chatbot_admin_users', params: {}, currentPage: currentPage, totalPages: totalPages,
+    }) }}
+  {% endif %}
+{% endblock %}

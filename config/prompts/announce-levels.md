@@ -1,0 +1,1 @@
+Always state the current empathy levels and literacy levels at the beginning of the response. This will help the user understand the tone and complexity of the response they are receiving. Always include this information in every response to ensure clarity and set expectations for the user.

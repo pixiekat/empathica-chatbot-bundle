@@ -1,0 +1,55 @@
+{% extends '@PixiekatEmpathicaChatbot/chatbot/layout.html.twig' %}
+
+{% block title %}Chatbot preferences{% endblock %}
+
+{#
+  Chatbot settings, bound to ChatbotPreferences (the bundle's own table).
+
+  Theme and larger-font settings are gone from here: those are site-wide
+  accessibility settings that belong to the host, so the chat follows the
+  host's rather than keeping a second copy that could disagree with it.
+
+  Each field is wrapped in an element carrying its name as an id, so the
+  "Literacy Level" / "Empathy Level" links on the chat page can jump straight
+  to the right control. (The old <a name="…"> anchors were obsolete HTML.)
+#}
+{% block chatbot_body %}
+  <div class="preferences-wrapper">
+    <h2>Set Preferences</h2>
+    {% if form %}
+      {{ form_start(form) }}
+        {% for field in ['memory', 'literacyLevel', 'empathyLevel', 'persona', 'provider'] %}
+          {% if form[field] is defined %}
+            <div class="mb-3" id="{{ field }}">
+              {{ form_label(form[field]) }}
+              {{ form_widget(form[field]) }}
+              {{ form_help(form[field]) }}
+              {{ form_errors(form[field]) }}
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        {# Research-only switches, tucked into a native <details> so they are
+           out of the way but need no JavaScript to open. Only present when
+           PreferencesType added them, i.e. for holders of the admin role. #}
+        {% if form.debugModeEnabled is defined %}
+          <details class="mb-3">
+            <summary>Administrative Options</summary>
+            <div class="mt-2" id="debugModeEnabled">
+              {{ form_label(form.debugModeEnabled) }}
+              {{ form_widget(form.debugModeEnabled) }}
+              {{ form_help(form.debugModeEnabled) }}
+              {{ form_errors(form.debugModeEnabled) }}
+            </div>
+          </details>
+        {% endif %}
+
+        <div class="d-flex justify-content-between mt-3">
+          {{ form_widget(form.submit) }}
+          <a href="{{ path('empathica_chatbot_index') }}" class="btn btn-secondary">Cancel &amp; Go Back</a>
+        </div>
+        {{ form_rest(form) }}
+      {{ form_end(form) }}
+    {% endif %}
+  </div>
+{% endblock %}

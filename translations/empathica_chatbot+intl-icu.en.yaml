@@ -1,0 +1,29 @@
+# UI strings for the EMPATHICA chatbot bundle.
+#
+# Domain: empathica_chatbot — use as 'key'|trans({}, 'empathica_chatbot').
+# Its own domain (rather than the host's `messages`) so a host can override any
+# string by shipping translations/empathica_chatbot.en.yaml of its own, and so
+# none of these keys can collide with the host's.
+#
+# Prompt text sent to the model is NOT here — that lives in config/prompts/,
+# because it is part of the research protocol and is versioned with it.
+chatbot:
+  title: "Chatbot"
+  untitled: "Untitled conversation"
+  # ICU plural, so screen readers hear "1 message" and not "1 messages".
+  message_count: "{count, plural, one {# message} other {# messages}}"
+  toolbar:
+    label: "Chatbot"
+    chat: "Chat"
+    conversations: "Conversations"
+    new_conversation: "New conversation"
+    settings: "Settings"
+    admin: "Admin"
+  panel:
+    label: "Your conversations"
+    close: "Close"
+    empty: "No conversations yet. Send a message to start one."
+    all: "See all conversations"
+  response:
+    read_aloud: "Read Response Aloud"
+    copy_clipboard: "Copy Response to Clipboard"

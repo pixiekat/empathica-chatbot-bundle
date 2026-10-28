@@ -1,0 +1,107 @@
+{% extends '@PixiekatEmpathicaChatbot/chatbot/layout.html.twig' %}
+
+{% block title %}Your conversations{% endblock %}
+
+{% block chatbot_body %}
+
+{# /history — the full, paginated archive of the user's conversations.
+   The toolbar's switcher lists the 20 most recent as a quick way back; this is
+   where you go to find an older one. It lists *threads*, not individual
+   exchanges: opening one loads it into the chat page, where it can be read in
+   full and carried on.
+
+   Every entry is a plain link, so this page works with no JavaScript at all. #}
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <div class="alert alert-secondary mt-5 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+        <p class="mb-0">
+          Your conversations with EMPATHICA.
+          {% if totalItems > 0 %}
+            <span class="text-muted">Page {{ currentPage }} of {{ totalPages }} ({{ totalItems }} conversation{{ totalItems == 1 ? '' : 's' }}).</span>
+          {% endif %}
+        </p>
+        {# Graceful degradation: a plain link back to the live chat, no JS needed. #}
+        <a class="btn btn-link" href="{{ path('empathica_chatbot_index') }}">&larr; Back to chat</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12 col-md-8 offset-md-2">
+      <div class="conversation--wrapper">
+        {% if conversations is not empty %}
+          <h2>Your conversations</h2>
+          <ul class="conversation--list list-unstyled">
+            {% for item in conversations %}
+              <li class="conversation--list-item">
+                <a href="{{ path('empathica_chatbot_conversation', {'id': item.id}) }}">
+                  <span class="conversation--title">{{ item.title|default('chatbot.untitled'|trans({}, 'empathica_chatbot')) }}</span>
+                  <span class="conversation--meta d-block text-muted">
+                    Last active {{ item.lastActivityAt|date('j M Y, H:i') }}
+                    &middot; started {{ item.createdAt|date('j M Y') }}
+                    &middot; {{ 'chatbot.message_count'|trans({'count': messageCounts[item.id]|default(0)}, 'empathica_chatbot') }}
+                    {% if item.chatbotModel %}&middot; {{ item.chatbotModel }}{% endif %}
+                    {% if item.persona %}&middot; {{ item.persona == constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Services\\ChatbotManagerInterface::PERSONA_MARY') ? 'Maria' : item.persona }}{% endif %}
+                    {# Imported threads were grouped by day from the pre-threading
+                       log rather than being real sessions — worth saying so
+                       rather than presenting a heuristic as fact. #}
+                    {% if item.imported %}&middot; <em title="Reconstructed from the pre-threading log, grouped by day">imported</em>{% endif %}
+                  </span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+
+          {% if totalPages > 1 %}
+            <nav class="mt-4" aria-label="Conversation history pages">
+              <ul class="pagination justify-content-center flex-wrap">
+                {# Previous #}
+                {% if currentPage > 1 %}
+                  <li class="page-item">
+                    <a class="page-link" href="{{ path('empathica_chatbot_history', {'page': currentPage - 1}) }}" rel="prev">&laquo; Previous</a>
+                  </li>
+                {% else %}
+                  <li class="page-item disabled">
+                    <span class="page-link" aria-disabled="true">&laquo; Previous</span>
+                  </li>
+                {% endif %}
+
+                {# Numbered pages #}
+                {% for p in 1..totalPages %}
+                  {% if p == currentPage %}
+                    <li class="page-item active" aria-current="page">
+                      <span class="page-link">{{ p }}</span>
+                    </li>
+                  {% else %}
+                    <li class="page-item">
+                      <a class="page-link" href="{{ path('empathica_chatbot_history', {'page': p}) }}" aria-label="Go to page {{ p }}">{{ p }}</a>
+                    </li>
+                  {% endif %}
+                {% endfor %}
+
+                {# Next #}
+                {% if currentPage < totalPages %}
+                  <li class="page-item">
+                    <a class="page-link" href="{{ path('empathica_chatbot_history', {'page': currentPage + 1}) }}" rel="next">Next &raquo;</a>
+                  </li>
+                {% else %}
+                  <li class="page-item disabled">
+                    <span class="page-link" aria-disabled="true">Next &raquo;</span>
+                  </li>
+                {% endif %}
+              </ul>
+            </nav>
+          {% endif %}
+        {% else %}
+          <div class="alert alert-info mt-5">
+            <p class="mb-0">You don't have any conversations yet. <a href="{{ path('empathica_chatbot_index') }}">Start chatting with EMPATHICA</a>.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

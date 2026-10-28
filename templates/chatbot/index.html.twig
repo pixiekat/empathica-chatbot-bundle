@@ -1,0 +1,216 @@
+{% extends '@PixiekatEmpathicaChatbot/chatbot/layout.html.twig' %}
+
+{% block chatbot_body %}
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <div class="alert alert-secondary mt-5 mb-4">
+        {% if persona is defined %}
+          {% if persona == constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Services\\ChatbotManagerInterface::PERSONA_EMILY') %}
+            <p>Hi Emily,  I am EMPATHICA your virtual pharmacist. I am familiar with your medication and medical history. Do you have questions about your medications. Emily's birthday is March 15, 1996 and her primary doctor is Dr. John Smith.</p>
+          {% elseif persona == constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Services\\ChatbotManagerInterface::PERSONA_MARY') %}
+            <p>Hi Maria,  I am EMPATHICA your virtual pharmacist. I am familiar with your medication and medical history. Do you have questions about your medications. Mary's birthday is September 12, 1960 and her primary doctor is Dr. John Smith.</p>
+          {% endif %}
+        {% endif %}
+        <p class="mb-0">EMPATHICA - For authorized users of DCI Network at BIDMC</p>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="row">
+    <div class="col-12 col-md-8 offset-md-2">
+      <div class="conversation--wrapper">
+        {# Visible confirmation that "New conversation" did something. Without
+           it a blank thread is indistinguishable from a page that ignored the
+           button, which is exactly how it read before. #}
+        {% if transcript is empty %}
+          <div class="conversation--empty alert alert-light border text-center" role="status">
+            <p class="mb-1"><strong>New conversation</strong></p>
+            <p class="mb-0 text-muted">Send a message below to begin. Earlier conversations are still available under <em>Conversations</em>.</p>
+          </div>
+        {% else %}
+          <h2>Conversation History</h2>
+          {# aria-live="polite" makes assistive tech announce a reply when it
+             appears. Without it the response arrives silently and the reader
+             has to go looking for it. "polite" waits for a pause rather than
+             interrupting; "assertive" would cut across whatever the user is
+             already listening to. #}
+          {# data-tts-token carries the CSRF token for the read-aloud endpoint.
+             It lives on the container rather than on each button because one
+             token covers every request from this page. #}
+          <div class="conversations" aria-live="polite" data-tts-token="{{ csrf_token('tts') }}" data-tts-prefetch="{{ chatbot_tts_prefetch }}">
+            {% set last_index = transcript|length - 1 %}
+            {% for message in transcript %}
+              {% set classes = ['message'] %}
+              {% set role = message.role %}
+              {% set role_text = role %}
+              {% if role == 'assistant' or role == 'model' %}
+                {% set classes = classes|merge(['message--response']) %}
+                {% set role_text = 'EMPATHICA says' %}
+                {% if is_granted(constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Security\\Voter\\DefaultVoterInterface::CAN_CHANGE_RESEARCH_SETTINGS')) %}
+                  {% set role_text = role_text ~ ' (' ~ chatbot ~ ')' %}
+                {% endif %}
+              {% endif %}
+              {% if role == 'user' %}
+                {% set classes = classes|merge(['message--question']) %}
+                {% set role_text = persona %}
+                {% if persona == constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Services\\ChatbotManagerInterface::PERSONA_MARY') %}
+                  {% set role_text = 'Maria' %}
+                {% endif %}
+              {% endif %}
+              {# The newest message carries id="last-message" and tabindex="-1"
+                 so chatbot.js can move *focus* here after a reply, not just
+                 scroll. tabindex="-1" makes it focusable programmatically
+                 without adding it to the tab order. This replaces the old
+                 <a name="last-message">, which was deprecated HTML4 and only
+                 ever helped sighted users. #}
+              <div class="conversation" data-transcript-id="{{ message.id }}"
+                {%- if loop.index0 == last_index %} id="chatbot-last-message" tabindex="-1"{% endif %}>
+                <div class="{{ classes|join(' ') }}" style="margin: 20px 0 10px;">
+                  <div class="chatbot--message">
+                    <strong>{{ role_text }}:</strong> <span class="response-text">{{ message.content|chatbot_markdown|raw }}</span>
+                    {% if role != 'user' %}
+                      {# These are <button>s, not <a href="#">. They perform an
+                         action on this page rather than navigating anywhere,
+                         so a link is the wrong element: screen readers
+                         announce it as a link to nowhere, and it cannot be
+                         activated with the Space key. #}
+                      <div class="d-flex flex-row justify-content-center justify-content-md-start">
+                        <span class="icon--tts">
+                          {# data-tts-url points at the server-side Gemini voice
+                             for *this* message, identified by its stored
+                             ConversationMessage id — the text itself is never sent
+                             from the browser. If that endpoint is unavailable
+                             or returns 204, chatbot.js falls back to the browser's
+                             own speechSynthesis.
+
+                             __PART__ is a placeholder chatbot.js substitutes with
+                             a piece number. Long answers are synthesised in
+                             pieces so playback can begin on the first one
+                             rather than after the whole thing exists; letting
+                             Twig generate the URL shape keeps route knowledge
+                             out of the JavaScript.
+
+                             The placeholder cannot be passed to path()
+                             directly: the route requires part to match \d+ and
+                             the generator validates that up front, so
+                             '__PART__' throws while rendering. Generating with
+                             a numeric sentinel and swapping it afterwards
+                             satisfies the requirement and still yields a
+                             template. The sentinel is far larger than any real
+                             part or message index, so it cannot collide with
+                             the rest of the path. #}
+                          {%- set tts_url = path('empathica_chatbot_tts', {'id': message.id, 'part': 999999999})|replace({'999999999': '__PART__'}) -%}
+                          <button type="button" class="play btn btn-link" aria-pressed="false" data-tts-url="{{ tts_url }}" title="{{ 'chatbot.response.read_aloud'|trans({}, 'empathica_chatbot') }}"><i class="fa-solid fa-volume-high fa-lg" aria-hidden="true"></i> <span class="action--label d-inline-block">Listen to Response</span></button>
+                        </span>
+                        <span class="ms-2 icon--clipboard">
+                          <button type="button" class="clipboard btn btn-link" title="{{ 'chatbot.response.copy_clipboard'|trans({}, 'empathica_chatbot') }}"><i class="fa-solid fa-copy fa-lg" aria-hidden="true"></i> <span class="action--label d-inline-block">Copy Response</span></button>
+                        </span>
+                      </div>
+                    {% endif %}
+                  </div>
+                  {% if role != 'user' %}
+                    {# Per-message provenance, admin only. These come off the
+                       stored ConversationMessage rather than a transient
+                       response array, so they survive for later analysis.
+                       finishReason is surfaced because a truncated answer
+                       reads exactly like a complete one. #}
+                    {% if is_granted(constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Security\\Voter\\DefaultVoterInterface::CAN_CHANGE_RESEARCH_SETTINGS')) and message.totalTokens is not null %}
+                      <div class="message--usage alert alert-info mt-3 mx-3 d-flex flex-column flex-md-row justify-content-center flex-space-between">
+                        <span class="usage--tokens flex-grow-1 text-center">Tokens: {{ message.totalTokens }}</span>
+                        {% if message.promptTokens is not null %}
+                          <span class="usage--prompt flex-grow-1 text-center">Prompt: {{ message.promptTokens }}</span>
+                        {% endif %}
+                        {% if message.completionTokens is not null %}
+                          <span class="usage--completion flex-grow-1 text-center">Completion: {{ message.completionTokens }}</span>
+                        {% endif %}
+                        {% if message.latencyMs is not null %}
+                          <span class="usage--latency flex-grow-1 text-center">{{ (message.latencyMs / 1000)|number_format(1) }}s</span>
+                        {% endif %}
+                        {% if message.wasTruncated %}
+                          <span class="usage--truncated flex-grow-1 text-center"><strong>Cut off ({{ message.finishReason }})</strong></span>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if urlAccess is defined and not urlAccess %}
+          <div class="alert alert-danger">
+            <p>{{ 'Cannot access the model endpoint at this time. <a href="@prefs">Try a new model</a>.'|trans({'@prefs': path('empathica_chatbot_preferences') })|raw }}</p>
+          </div>
+        {% else %}
+          {% if form %}
+            <div class="message-compose mt-5 mb-4">
+              {{ form_start(form) }}
+                <div class="row">
+                  <div class="col-12 text-start">
+                    {{ form_row(form.message) }}
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-12 col-md-8 text-center text-md-start">
+                    {{ form_row(form.submit) }}
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-12 text-center text-md-start">
+                    {# Labels come from the bundle's own preferences entity, never
+                       from the host's User — see ChatbotPreferences. #}
+                    {% set chatbot_prefs = chatbot_preferences() %}
+                    {% set literacy_level = chatbot_prefs.literacyLabel %}
+                    {% set empathy_level = chatbot_prefs.empathyLabel %}
+                    {# Link to preferences page with an anchor to the literacy level field, since that's the most commonly adjusted preference. #}
+                    <small class="text-muted">Current Model: {{ chatbot }} | Literacy Level: <a href="{{ path('empathica_chatbot_preferences') }}#literacyLevel">{{ literacy_level }}</a> | Empathy Level: <a href="{{ path('empathica_chatbot_preferences') }}#empathyLevel">{{ empathy_level }}</a></small>
+                  </div>
+                </div>
+              {{ form_end(form) }}
+
+              {# The research link lives OUTSIDE the chatbot form on purpose:
+                 anything here that is itself a <form> cannot be nested inside
+                 the chat form (invalid HTML that strips its CSRF token). The
+                 old "Clear Chat" button is gone — "New conversation" in the
+                 toolbar does the same thing for everyone. #}
+              {% if is_granted(constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Security\\Voter\\DefaultVoterInterface::CAN_CHANGE_RESEARCH_SETTINGS')) %}
+                <div class="row mt-3">
+                  <div class="d-flex flex-column flex-md-row">
+                    <a class="btn btn-link text-primary" href="{{ path('empathica_chatbot_preferences') }}">Change Model/Persona</a>
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# role="status" turns this into a live region, so "EMPATHICA is thinking..."
+   is announced when chatbot.js reveals the widget. Previously the wait was
+   communicated purely by an animation — invisible to screen reader users,
+   who got no indication anything was happening at all during a multi-second
+   provider round-trip. The decorative shapes are hidden from assistive tech. #}
+<div class="loading-widget-wrapper" role="status" aria-live="polite">
+  <div class="loading-widget">
+    <div class="loading-widget-body" aria-hidden="true">
+      <div class="pulse-ring"></div>
+      <div class="leaf leaf-1"></div>
+      <div class="leaf leaf-2"></div>
+      <div class="leaf leaf-3"></div>
+    </div>
+    <div class="status-text" id="statusText">EMPATHICA is thinking...</div>
+    <div class="typing-dots" aria-hidden="true">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

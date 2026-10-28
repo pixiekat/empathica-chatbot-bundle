@@ -1,0 +1,118 @@
+{#
+  Layout for every full-page chat screen in this bundle.
+
+  ── Why this exists instead of a base.html.twig ──────────────────────────────
+  The standalone app shipped its own base.html.twig: the <html> shell, the
+  navbar, the theme and font-size classes, the login/logout links. Inside a
+  host all of that is the host's. So this template EXTENDS the host's layout
+  (whatever `empathica_chatbot.layout` names, published as the chatbot_layout
+  Twig global) and only adds what is genuinely the chat's:
+
+    - its stylesheet and script, by plain <link> / <script type="module">,
+      so the host needs no import or importmap entry;
+    - a small toolbar (Conversations, New conversation, Settings, Admin);
+    - the slide-out conversation switcher.
+
+  The host layout must define `stylesheets`, `body` and `javascripts` blocks —
+  the Symfony skeleton names, which Infosage's base.html.twig uses.
+
+  ── The root element ─────────────────────────────────────────────────────────
+  Everything renders inside <div class="empathica-chatbot" data-empathica-chatbot>.
+  The class scopes every CSS rule; the data attribute is what chatbot.js looks
+  for (and marks once wired up, so Turbo navigations re-initialise cleanly).
+
+  Pages extend THIS and fill {% block chatbot_body %}.
+#}
+{% extends chatbot_layout %}
+
+{% block title %}{{ 'chatbot.title'|trans({}, 'empathica_chatbot') }}{% endblock %}
+
+{% block stylesheets %}
+  {{ parent() }}
+  <link rel="stylesheet" href="{{ asset('empathica-chatbot/styles/chatbot.css') }}">
+{% endblock %}
+
+{% block body %}
+  <div class="empathica-chatbot" data-empathica-chatbot>
+    {% if is_granted('ROLE_USER') %}
+      {# ── Toolbar ──────────────────────────────────────────────────────────
+         Every control is a real link or a real form, so the whole toolbar
+         works with JavaScript disabled. #}
+      <nav class="chatbot--toolbar d-flex flex-wrap gap-2 align-items-center justify-content-end mb-3" aria-label="{{ 'chatbot.toolbar.label'|trans({}, 'empathica_chatbot') }}">
+        <a class="btn btn-link" href="{{ path('empathica_chatbot_index') }}">{{ 'chatbot.toolbar.chat'|trans({}, 'empathica_chatbot') }}</a>
+
+        {% if is_granted(constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Security\\Voter\\DefaultVoterInterface::CAN_VIEW_HISTORY')) %}
+          {# An anchor to the panel's id: with no JavaScript, :target opens it.
+             chatbot.js intercepts the click to add a backdrop, Escape-to-close
+             and focus management. The badge count is announced as part of the
+             link text. #}
+          <a class="btn btn-outline-secondary conversation--toggle" href="#chatbot-conversation-list"
+             aria-controls="chatbot-conversation-list" aria-expanded="false">
+            <i class="fa-solid fa-comments" aria-hidden="true"></i> {{ 'chatbot.toolbar.conversations'|trans({}, 'empathica_chatbot') }}
+            <span class="badge bg-secondary">{{ chatbot_conversations()|length }}</span>
+          </a>
+        {% endif %}
+
+        <form method="post" action="{{ path('empathica_chatbot_conversation_new') }}" class="d-inline">
+          <input type="hidden" name="_token" value="{{ csrf_token('conversation_new') }}">
+          <button type="submit" class="btn btn-outline-primary">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i> {{ 'chatbot.toolbar.new_conversation'|trans({}, 'empathica_chatbot') }}
+          </button>
+        </form>
+
+        <a class="btn btn-link" href="{{ path('empathica_chatbot_preferences') }}">{{ 'chatbot.toolbar.settings'|trans({}, 'empathica_chatbot') }}</a>
+
+        {% if is_granted(constant('Pixiekat\\EmpathicaChatbot\\Interfaces\\Security\\Voter\\DefaultVoterInterface::ADMIN_ACCESS_ADMIN_FUNCTIONS')) %}
+          <a class="btn btn-link" href="{{ path('empathica_chatbot_admin_users') }}">{{ 'chatbot.toolbar.admin'|trans({}, 'empathica_chatbot') }}</a>
+        {% endif %}
+      </nav>
+
+      {# ── Conversation switcher ────────────────────────────────────────────
+         Off-canvas by default (see chatbot.css), opened by :target. #}
+      <aside id="chatbot-conversation-list" class="conversation--panel" aria-label="{{ 'chatbot.panel.label'|trans({}, 'empathica_chatbot') }}">
+        <div class="conversation--panel-header d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0">{{ 'chatbot.panel.label'|trans({}, 'empathica_chatbot') }}</h2>
+          {# An anchor, not a button: with no JavaScript, clearing the fragment
+             is what closes a :target-driven panel. #}
+          <a class="conversation--close btn btn-link" href="#">{{ 'chatbot.panel.close'|trans({}, 'empathica_chatbot') }}<span class="visually-hidden"> {{ 'chatbot.panel.label'|trans({}, 'empathica_chatbot') }}</span></a>
+        </div>
+
+        {% set switcher_conversations = chatbot_conversations() %}
+        {% set switcher_counts = chatbot_conversation_counts() %}
+        {% if switcher_conversations is empty %}
+          <p class="text-muted mt-3">{{ 'chatbot.panel.empty'|trans({}, 'empathica_chatbot') }}</p>
+        {% else %}
+          <ul class="conversation--list list-unstyled mt-3">
+            {% for item in switcher_conversations %}
+              {# `conversation` is only defined on the chat page; elsewhere nothing is current. #}
+              {% set is_current = conversation is defined and conversation is not null and conversation.id == item.id %}
+              <li class="conversation--list-item{{ is_current ? ' is-current' : '' }}">
+                <a href="{{ path('empathica_chatbot_conversation', {'id': item.id}) }}"
+                   {{ is_current ? 'aria-current="true"' : '' }}>
+                  <span class="conversation--title">{{ item.title|default('chatbot.untitled'|trans({}, 'empathica_chatbot')) }}</span>
+                  <span class="conversation--meta d-block text-muted">
+                    {{ item.lastActivityAt|date('j M Y, H:i') }}
+                    &middot; {{ 'chatbot.message_count'|trans({'count': switcher_counts[item.id]|default(0)}, 'empathica_chatbot') }}
+                    {% if item.chatbotModel %}&middot; {{ item.chatbotModel }}{% endif %}
+                  </span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+          <p class="mt-3"><a href="{{ path('empathica_chatbot_history') }}">{{ 'chatbot.panel.all'|trans({}, 'empathica_chatbot') }}</a></p>
+        {% endif %}
+      </aside>
+    {% endif %}
+
+    {% block chatbot_body %}{% endblock %}
+  </div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  {# A plain module script rather than an importmap entrypoint — see the
+     header of assets/chatbot.js. type="module" makes it deferred, so it never
+     blocks rendering, and browsers without module support simply skip it and
+     get the plain-form experience. #}
+  <script type="module" src="{{ asset('empathica-chatbot/chatbot.js') }}"></script>
+{% endblock %}
