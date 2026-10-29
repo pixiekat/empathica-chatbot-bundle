@@ -4,6 +4,7 @@ namespace Pixiekat\EmpathicaChatbot\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Pixiekat\EmpathicaChatbot\Entity;
+use Pixiekat\EmpathicaChatbot\Export\CsvSanitizer;
 use Pixiekat\EmpathicaChatbot\Interfaces;
 use Pixiekat\EmpathicaChatbot\Repository;
 use Pixiekat\SymfonyHelpers\Interfaces\Entity\HelpersUserInterface;
@@ -275,21 +276,21 @@ final class AdminController extends AbstractController {
           $conversation?->getId(),
           $message->getSequence(),
           $message->getRole(),
-          $this->csvSafe($message->getContent()),
-          $this->csvSafe($conversation?->getPersona()),
-          $this->csvSafe($message->getProvider()),
-          $this->csvSafe($message->getModelId()),
+          CsvSanitizer::neutralise($message->getContent()),
+          CsvSanitizer::neutralise($conversation?->getPersona()),
+          CsvSanitizer::neutralise($message->getProvider()),
+          CsvSanitizer::neutralise($message->getModelId()),
           $message->getLiteracyLevel(),
           $message->getEmpathyLevel(),
-          $this->csvSafe($message->getPromptVersion()),
+          CsvSanitizer::neutralise($message->getPromptVersion()),
           $message->getPromptTokens(),
           $message->getCompletionTokens(),
-          $this->csvSafe($message->getFinishReason()),
+          CsvSanitizer::neutralise($message->getFinishReason()),
           $message->getLatencyMs(),
           $message->getCreatedAt()->format('Y-m-d H:i:s'),
         ];
         if ($includeUser) {
-          array_unshift($line, $this->csvSafe($conversation?->getUser()?->getUserIdentifier()));
+          array_unshift($line, CsvSanitizer::neutralise($conversation?->getUser()?->getUserIdentifier()));
         }
         fputcsv($handle, $line);
 
@@ -307,25 +308,5 @@ final class AdminController extends AbstractController {
       $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $filename)
     );
     return $response;
-  }
-
-  /**
-   * Neutralises CSV formula injection.
-   *
-   * fputcsv() handles CSV *correctness* (quoting commas, quotes, newlines),
-   * but a cell whose text starts with =, +, -, @ (or certain control chars)
-   * is still run as a formula when the file is opened in Excel/Google Sheets.
-   * Since these cells hold free text the patient typed — and text an LLM
-   * produced in reply — prefix any such value with a single quote so the
-   * spreadsheet treats it as literal text.
-   *
-   * @see https://owasp.org/www-community/attacks/CSV_Injection
-   */
-  private function csvSafe(?string $value): string {
-    $value = (string) $value;
-    if ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-      $value = "'" . $value;
-    }
-    return $value;
   }
 }

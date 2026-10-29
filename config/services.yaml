@@ -43,6 +43,8 @@ services:
       - '../src/Chatbot/ChatReply.php'
       - '../src/Chatbot/ChatRequest.php'
       - '../src/Chatbot/Exception/'
+      # A static helper with nothing to inject, so not a service either.
+      - '../src/Export/'
 
   # The system prompt text lives in Markdown files. The directory defaults to
   # the bundle's own config/prompts; empathica_chatbot.prompts_dir lets a host
