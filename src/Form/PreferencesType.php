@@ -73,11 +73,25 @@ class PreferencesType extends AbstractType
 
     $builder
       ->add('memory', FormTypes\TextareaType::class, [
-        'help' => 'Provide any relevant medical history or context that the chatbot should consider when responding to your queries. This can include information about your current medications, medical conditions, allergies, or any other details you think are important for the chatbot to know in order to provide accurate and personalized responses. This will be sent with every query to the chatbot and can be updated at any time.',
+        // The privacy sentence is part of the help text, not a separate
+        // notice, so it is read out with the field (aria-describedby) at the
+        // moment someone is deciding what to type into it.
+        'help' => sprintf(
+          'Provide any relevant medical history or context that the chatbot should consider when responding to your queries. This can include information about your current medications, medical conditions, allergies, or any other details you think are important for the chatbot to know in order to provide accurate and personalized responses. This will be sent with every query to the chatbot and can be updated at any time. It is stored with your conversations, which the research team can read. Up to %s characters.',
+          number_format(Entity\ChatbotPreferences::MEMORY_MAX_LENGTH),
+        ),
         'label' => 'Additional Saved Medical Context',
         'required' => false,
+        'constraints' => [
+          // See ChatbotPreferences::MEMORY_MAX_LENGTH for why this is capped.
+          new Assert\Length(
+            max: Entity\ChatbotPreferences::MEMORY_MAX_LENGTH,
+            maxMessage: 'Please keep your saved context to {{ limit }} characters or fewer.',
+          ),
+        ],
         'attr' => [
           'rows' => 10,
+          'maxlength' => Entity\ChatbotPreferences::MEMORY_MAX_LENGTH,
         ]
       ])
       ->add('literacyLevel', FormTypes\ChoiceType::class, [

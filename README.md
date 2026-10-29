@@ -161,6 +161,9 @@ The panel holds a `<turbo-frame id="empathica-chatbot-widget-frame" src="/chat/"
 Setting `features.admin: false` hides the admin menu entry **and** makes `/chat/admin/*` answer 403. The data is kept.
 
 **Audit trail.** Opening a participant's conversation list or a transcript, and every CSV download, is recorded through SymfonyHelpers' `AuditLogManager` (the `audit_logs` table and the `audit` log channel), so it shows in the SCH audit screen. The entry names the admin and the participant, and the conversation by id. It never records the conversation's title, which is the participant's own words. The sentences shown for these entries are in `translations/messages.en.yaml`. The overview list of users isn't logged, because it shows no message content.
+
+**Limits.** A chat message and the saved medical context are each capped at 4,000 characters (`ChatbotInputType::MESSAGE_MAX_LENGTH`, `ChatbotPreferences::MEMORY_MAX_LENGTH`). Both are sent to a paid provider, the context on every turn.
+
 > **Study safety:** debug mode makes the model announce the active empathy and literacy levels, which tells a participant which experimental arm they're in. Only admins can turn it on, and it's off by default.
 
 ## Graceful degradation

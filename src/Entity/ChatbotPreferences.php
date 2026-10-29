@@ -58,6 +58,18 @@ class ChatbotPreferences {
   public const DEFAULT_LEVEL = 2;
 
   /**
+   * The longest saved context, in characters.
+   *
+   * The memory is pasted into the system prompt of EVERY message the user
+   * sends, so its size is paid for on every turn, forever. Capped at the same
+   * figure as a single message (ChatbotInputType::MESSAGE_MAX_LENGTH): room
+   * for a medication list, allergies and a few conditions, but not a pasted
+   * medical record. PreferencesType enforces it, both as a constraint and as
+   * a maxlength on the text box.
+   */
+  public const MEMORY_MAX_LENGTH = 4000;
+
+  /**
    * Human labels for the stored integer levels.
    *
    * Kept on the entity (rather than in a template) so the chat page, the
