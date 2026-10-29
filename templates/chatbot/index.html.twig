@@ -141,12 +141,10 @@
           </div>
         {% endif %}
 
-        {% if urlAccess is defined and not urlAccess %}
-          <div class="alert alert-danger">
-            <p>{{ 'Cannot access the model endpoint at this time. <a href="@prefs">Try a new model</a>.'|trans({'@prefs': path('empathica_chatbot_preferences') })|raw }}</p>
-          </div>
-        {% else %}
-          {% if form %}
+        {# (The old "Cannot access the model endpoint" alert lived here. It was
+           driven by the removed check_ollama_site() function; provider
+           failures now arrive as a flash message from ChatController.) #}
+        {% if form %}
             <div class="message-compose mt-5 mb-4">
               {{ form_start(form) }}
                 <div class="row">
@@ -186,7 +184,6 @@
               {% endif %}
             </div>
           {% endif %}
-        {% endif %}
       </div>
     </div>
   </div>
@@ -196,7 +193,13 @@
    is announced when chatbot.js reveals the widget. Previously the wait was
    communicated purely by an animation — invisible to screen reader users,
    who got no indication anything was happening at all during a multi-second
-   provider round-trip. The decorative shapes are hidden from assistive tech. #}
+   provider round-trip. The decorative shapes are hidden from assistive tech.
+
+   The status text starts EMPTY and is held in data-status-text: chatbot.js
+   writes it in on submit. Text that was already in the region and merely
+   becomes visible is not reliably announced (NVDA and VoiceOver skip it);
+   text that changes is. Without JavaScript the overlay is never shown, so
+   nothing is lost by the element being empty. #}
 <div class="loading-widget-wrapper" role="status" aria-live="polite">
   <div class="loading-widget">
     <div class="loading-widget-body" aria-hidden="true">
@@ -205,7 +208,7 @@
       <div class="leaf leaf-2"></div>
       <div class="leaf leaf-3"></div>
     </div>
-    <div class="status-text" id="statusText">EMPATHICA is thinking...</div>
+    <div class="status-text" data-status-text="EMPATHICA is thinking..."></div>
     <div class="typing-dots" aria-hidden="true">
       <div class="dot"></div>
       <div class="dot"></div>

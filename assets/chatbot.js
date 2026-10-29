@@ -431,14 +431,61 @@ function initChatForm() {
     const wrapper = document.querySelector('[data-empathica-chatbot] .loading-widget-wrapper');
     if (wrapper) {
       wrapper.style.visibility = 'visible';
+
+      // The status text is written in NOW, not shipped in the markup. Screen
+      // readers announce a live region when its content changes; a region
+      // whose text was there all along and merely stops being hidden is
+      // announced by some (JAWS) and silently skipped by others (NVDA,
+      // VoiceOver). Writing the text is the change every reader hears.
+      const status = wrapper.querySelector('.status-text');
+      if (status) {
+        status.textContent = status.dataset.statusText || '';
+      }
     }
 
     const submit = document.getElementById('chatbot_input_submit');
     if (submit) {
+      // Kept so resetChatForm() can put the button back exactly as it was.
+      submit.dataset.originalLabel = submit.innerHTML;
       submit.disabled = true;
       submit.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Loading...';
     }
   });
+}
+
+/**
+ * Undo the submit feedback above: re-enable the button, hide "thinking".
+ *
+ * Needed because a page can come back WITHOUT being rebuilt, still frozen in
+ * its "Loading..." state with a disabled button and no way to send another
+ * message:
+ *
+ *   - the browser's back/forward cache, after pressing Back on a full page
+ *     load (no Turbo), restores the page exactly as it was left;
+ *   - Turbo's page cache, which snapshots the page as it navigates away,
+ *     i.e. right after submit, and shows that snapshot when you go Back.
+ *
+ * Both callers are at the bottom of this file, and both go through
+ * fullPageChatRoot(): see there for why the widget's copy is left alone.
+ *
+ * @param {Element} root The chat's [data-empathica-chatbot] element.
+ */
+function resetChatForm(root) {
+  const wrapper = root.querySelector('.loading-widget-wrapper');
+  if (wrapper) {
+    wrapper.style.visibility = '';
+    const status = wrapper.querySelector('.status-text');
+    if (status) {
+      status.textContent = '';
+    }
+  }
+
+  const submit = root.querySelector('#chatbot_input_submit');
+  if (submit && submit.dataset.originalLabel !== undefined) {
+    submit.disabled = false;
+    submit.innerHTML = submit.dataset.originalLabel;
+    delete submit.dataset.originalLabel;
+  }
 }
 
 
@@ -471,15 +518,26 @@ function initConversationPanel() {
     toggle.setAttribute('aria-expanded', 'false');
     backdrop?.remove();
     backdrop = null;
-    document.removeEventListener('keydown', onKeydown);
+    // `true` must match the addEventListener below, or this removes nothing.
+    document.removeEventListener('keydown', onKeydown, true);
     toggle.focus();
   };
 
   const onKeydown = (event) => {
     if (event.key === 'Escape') {
-      // Inside the floating widget, Escape would also close the widget's
-      // <dialog> (that's the browser's default action for the key). One press
-      // should close one thing, the innermost, so cancel that default.
+      // Inside the floating widget, Escape would also close the widget
+      // itself. One press should close one thing, the innermost, so this
+      // marks the key as handled. Two different things are listening:
+      //
+      //   - the browser, which closes a MODAL <dialog> on Escape as its
+      //     default action. preventDefault() cancels that;
+      //   - widget.js, which closes the NON-modal popup itself, and skips
+      //     any Escape that is already defaultPrevented.
+      //
+      // widget.js listens on the document too, and was registered first, so
+      // in the normal (bubbling) phase it would run BEFORE this and close the
+      // popup before we could say "handled". That's why this listener is added
+      // in the capture phase (see open()): capture runs before bubbling.
       event.preventDefault();
       close();
     }
@@ -499,7 +557,9 @@ function initConversationPanel() {
     backdrop.addEventListener('click', close);
     (panel.closest('dialog') ?? document.body).appendChild(backdrop);
 
-    document.addEventListener('keydown', onKeydown);
+    // Capture phase (`true`), so this sees Escape before widget.js does. See
+    // onKeydown for why the order matters.
+    document.addEventListener('keydown', onKeydown, true);
 
     // Move focus into the panel. Its heading is not focusable by default, so
     // give it tabindex="-1" first — otherwise focus stays behind the overlay
@@ -585,6 +645,48 @@ function initFrameLinks(root) {
 }
 
 document.addEventListener('turbo:load', initChatbot);
+
+// Back/forward cache: Back after a full-page submit restores the page in its
+// "Loading..." state. `persisted` is true only for such a restore; a normal
+// load is handled by initChatbot as usual. See resetChatForm().
+/**
+ * The full-page chat's root element, or null on any other page.
+ *
+ * The floating widget's chat is skipped deliberately. It lives inside a
+ * data-turbo-permanent element, which Turbo carries across page visits WITH
+ * its event listeners, so it never goes stale the way a cached page does.
+ * Resetting it, or removing its readiness marker, would cancel the feedback
+ * for a message still being sent from the popup, or make the next turbo:load
+ * bind every listener a second time.
+ */
+function fullPageChatRoot() {
+  return [...document.querySelectorAll('[data-empathica-chatbot]')]
+    .find((root) => !root.closest('turbo-frame')) ?? null;
+}
+
+window.addEventListener('pageshow', (event) => {
+  const root = fullPageChatRoot();
+  if (event.persisted && root) {
+    resetChatForm(root);
+  }
+});
+
+// Turbo's page cache: Turbo snapshots the page as it leaves it, which after a
+// submit is mid-"Loading...". Tidy up first, so the snapshot shown on Back is
+// a usable page.
+//
+// The readiness marker is removed too. A snapshot is a copy of the DOM, and
+// copies carry attributes but not event listeners, so a restored chat would
+// otherwise look initialised (marker present) while nothing is actually
+// wired up. Without the marker, the turbo:load after the restore wires it
+// again.
+document.addEventListener('turbo:before-cache', () => {
+  const root = fullPageChatRoot();
+  if (root) {
+    resetChatForm(root);
+    root.removeAttribute('data-empathica-chatbot-ready');
+  }
+});
 
 // The floating widget loads the chat into a <turbo-frame>, and every message
 // sent from it reloads that frame without a page visit, so turbo:load never
