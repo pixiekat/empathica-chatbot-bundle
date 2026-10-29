@@ -29,14 +29,24 @@ php vendor/bin/phpunit -c vendor/pixiekat/empathica-chatbot/phpunit.dist.xml --t
 
 The **functional** tests make real requests against the host's *test* database. Until it exists, every one of them is reported as **skipped**, with a message pointing here. That's expected, not a failure.
 
-For Infosage, the test database is called `infosage_app_test_test`. Doctrine adds the second `_test` itself, through `dbname_suffix` in `config/packages/doctrine.yaml`. Creating it needs a database administrator account, because the application's own database user isn't allowed to create databases:
+The host's `.env.test` says which database the tests use. For Infosage it's `infosage_app_unittest`, reached as the MariaDB user `symfonyusertest`. That user is separate from the application's own user, so a misconfigured test run can't reach development data. (Infosage's `infosage_app_test` is a different database, which holds legacy-migration trial data. Don't point tests at it.)
+
+Creating the database needs a database administrator account:
 
 ```bash
-# 1. Create the database and let the app's user use it (needs an admin login).
-sudo mariadb -e "CREATE DATABASE infosage_app_test_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-                 GRANT ALL PRIVILEGES ON infosage_app_test_test.* TO 'symfonyuser'@'%';"
+# 1. Create the database and a user that can reach ONLY it (needs an admin login).
+sudo mariadb -e "CREATE DATABASE infosage_app_unittest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                 CREATE USER IF NOT EXISTS 'symfonyusertest'@'%';
+                 GRANT ALL PRIVILEGES ON infosage_app_unittest.* TO 'symfonyusertest'@'%';"
 
 # 2. Create every table: the host's, SymfonyHelpers' and this bundle's.
+php bin/console doctrine:schema:create --env=test
+```
+
+To start again from empty (for example, after an interrupted run left test users behind):
+
+```bash
+php bin/console doctrine:schema:drop --force --full-database --env=test
 php bin/console doctrine:schema:create --env=test
 ```
 
