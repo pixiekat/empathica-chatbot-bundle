@@ -268,7 +268,11 @@ final class AdminController extends AbstractController {
       if ($includeUser) {
         array_unshift($header, 'User');
       }
-      fputcsv($handle, $header);
+      // escape: '' turns off PHP's non-standard backslash escaping, so a
+      // message containing \" is written the way spreadsheets expect (RFC
+      // 4180: quotes doubled, nothing else special). Passing it explicitly is
+      // also required from PHP 8.4, which deprecates relying on the default.
+      fputcsv($handle, $header, escape: '');
 
       foreach ($rows as $message) {
         $conversation = $message->getConversation();
@@ -292,7 +296,7 @@ final class AdminController extends AbstractController {
         if ($includeUser) {
           array_unshift($line, CsvSanitizer::neutralise($conversation?->getUser()?->getUserIdentifier()));
         }
-        fputcsv($handle, $line);
+        fputcsv($handle, $line, escape: ''); // see the header row above
 
         // Detach once written so the identity map does not grow unbounded
         // over a large export — keeps memory flat.

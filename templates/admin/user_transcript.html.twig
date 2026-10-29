@@ -32,7 +32,11 @@
       {% for message in messages %}
         <tr>
           <td>{{ message.sequence }}</td>
-          <td>{{ message.fromUser ? 'User' : 'EMPATHICA' }}</td>
+          {# isFromUser, spelled out: Twig resolves a bare `message.fromUser` to
+             the entity's static factory ConversationMessage::fromUser($content)
+             before it gets to isFromUser(), and calling that with no argument
+             crashed this whole page. #}
+          <td>{{ message.isFromUser ? 'User' : 'EMPATHICA' }}</td>
           {# chatbot_markdown escapes any HTML in the stored message before
              rendering markdown — both halves are untrusted (one typed by the
              user, one emitted by a model the user prompted), and an admin
@@ -40,7 +44,7 @@
              MessageExtensionRuntime::parseMarkdown(). #}
           <td>{{ message.content|chatbot_markdown|raw }}</td>
           <td class="small text-muted">
-            {% if not message.fromUser %}
+            {% if not message.isFromUser %}
               {{ message.provider }}{% if message.modelId %} ({{ message.modelId }}){% endif %}<br>
               literacy {{ message.literacyLevel ?? '–' }}, empathy {{ message.empathyLevel ?? '–' }}
               {% if message.totalTokens is not null %}<br>{{ message.totalTokens }} tokens{% endif %}
