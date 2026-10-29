@@ -141,6 +141,13 @@ The panel holds a `<turbo-frame id="empathica-chatbot-widget-frame" src="/chat/"
 
 **Requirements:** Turbo (`symfony/ux-turbo`) in the host and a browser with `<dialog>`. Without either, the launcher stays a plain link to the full-page chat.
 
+**Include the launcher after `importmap()`.** The launcher prints its own `<script type="module">` tags. If one of them appears before the host's import map, Firefox ignores the map: `import 'app'` fails as an unmapped bare specifier, and every relative import resolves to an unhashed `/assets/…` URL that 404s (the console shows `NS_ERROR_CORRUPTED_CONTENT` / "disallowed MIME type"). Recent Chrome merges a late import map instead, so the bug can look Firefox-only. Put the include below the block that calls `importmap()`, or put `importmap()` in `<head>`:
+
+```twig
+{% block javascripts %}{{ importmap('app') }}{% endblock %}
+{{ include('@PixiekatEmpathicaChatbot/widget/_launcher.html.twig') }}
+```
+
 **Graceful degradation:** the launcher and every control in the panel are real links. With JavaScript off, or without Turbo, they go to the full-page chat, which works as plain HTML forms.
 
 ## Access control
