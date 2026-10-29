@@ -176,11 +176,14 @@ The system prompt is Markdown in `config/prompts/`. To edit it without forking t
 
 ## Tests
 
+Run from the host's root, using the host's PHPUnit:
+
 ```bash
-php bin/phpunit                 # once installed with its own dev dependencies
+php vendor/bin/phpunit -c vendor/pixiekat/empathica-chatbot/phpunit.dist.xml                       # everything
+php vendor/bin/phpunit -c vendor/pixiekat/empathica-chatbot/phpunit.dist.xml --testsuite unit      # no database needed
 ```
 
-Most tests are plain `TestCase`s with no I/O. `ProviderWiringTest`, `TextToSpeechWiringTest` and `TextToSpeechRouteTest` boot a kernel, so they need a host application (`KERNEL_CLASS`).
+The `functional` suite makes real requests against the host's **test** database, and skips (rather than fails) until it exists. It never calls a real AI provider: the HTTP transport is mocked. [docs/qa-testing.md](docs/qa-testing.md) covers setting up the test database, what each test proves, and the manual QA checklists for participants and researchers.
 
 ## Differences from the standalone chatbot-app
 

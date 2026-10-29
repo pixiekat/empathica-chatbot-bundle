@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PHPUnit configuration for the EMPATHICA chatbot bundle.
+
+  Run from the HOST application's root, using the host's PHPUnit:
+
+    php vendor/bin/phpunit -c vendor/pixiekat/empathica-chatbot/phpunit.dist.xml
+
+  Two suites, so the quick one can be run on its own:
+
+    unit         no database; runs anywhere the host's kernel boots
+    functional   real requests against the host's TEST database; each test
+                 skips (not fails) when that database isn't set up
+
+  See docs/qa-testing.md for setting up the test database, and for the manual
+  QA checklist that covers what these tests can't (JavaScript, screen
+  readers, the look of things).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../phpunit/phpunit/phpunit.xsd"
+         colors="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         failOnWarning="true"
+         bootstrap="tests/bootstrap.php"
+         cacheDirectory="../../../var/cache/.phpunit-empathica-chatbot"
+>
+    <php>
+        <ini name="display_errors" value="1" />
+        <ini name="error_reporting" value="-1" />
+        <server name="APP_ENV" value="test" force="true" />
+        <server name="SHELL_VERBOSITY" value="-1" />
+        <!-- The host's kernel. Override in the environment for a host whose
+             kernel class is named differently. -->
+        <server name="KERNEL_CLASS" value="App\Kernel" />
+    </php>
+
+    <testsuites>
+        <testsuite name="unit">
+            <directory>tests</directory>
+            <exclude>tests/Functional</exclude>
+        </testsuite>
+        <testsuite name="functional">
+            <directory>tests/Functional</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>
