@@ -7,6 +7,7 @@ use Pixiekat\EmpathicaChatbot\Entity;
 use Pixiekat\EmpathicaChatbot\Interfaces;
 use Pixiekat\EmpathicaChatbot\Repository;
 use Pixiekat\SymfonyHelpers\Interfaces\Entity\HelpersUserInterface;
+use Pixiekat\SymfonyHelpers\Services\AuditLogManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,6 +41,23 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Templates extend the `admin_layout` Twig global published by the
  * SymfonyHelpers bundle, so these screens render inside the host's own
  * control panel chrome.
+ *
+ * AUDIT TRAIL
+ * -----------
+ * Every screen or download that shows what a participant actually wrote is
+ * recorded through the SymfonyHelpers AuditLogManager (the `audit_logs` table
+ * and the `audit` Monolog channel), so "who read whose conversations, and
+ * when" can always be answered. The overview list of users is not logged: it
+ * shows names and counts, never anything a participant typed.
+ *
+ * The audit TARGET is always the participant, never the Conversation. The
+ * manager labels a target by its getTitle(), and a conversation's title is
+ * the opening words of the participant's first message. Using it would copy
+ * clinical text into a log that is kept and read for other reasons. The
+ * conversation is identified by id in the context instead.
+ *
+ * The sentences these entries show as in the SymfonyHelpers audit screen are
+ * in translations/messages.en.yaml (audit.action.chatbot.*).
  */
 #[IsGranted(Interfaces\Security\Voter\DefaultVoterInterface::ADMIN_ACCESS_ADMIN_FUNCTIONS, message: 'You do not have access to the chatbot admin screens.')]
 #[Route('/admin')]
@@ -50,9 +68,20 @@ final class AdminController extends AbstractController {
    */
   private const PER_PAGE = 25;
 
+  /**
+   * Audit action keys. Each has a matching audit.action.<key> sentence in
+   * translations/messages.en.yaml.
+   */
+  public const AUDIT_USER_CONVERSATIONS_VIEWED = 'chatbot.user_conversations.viewed';
+  public const AUDIT_TRANSCRIPT_VIEWED = 'chatbot.transcript.viewed';
+  public const AUDIT_TRANSCRIPT_EXPORTED = 'chatbot.transcript.exported';
+  public const AUDIT_USER_EXPORTED = 'chatbot.user_messages.exported';
+  public const AUDIT_ALL_EXPORTED = 'chatbot.all_messages.exported';
+
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
     private readonly Repository\ConversationRepository $conversations,
+    private readonly AuditLogManager $audit,
   ) {  }
 
   /**
@@ -80,6 +109,11 @@ final class AdminController extends AbstractController {
   public function userConversations(int $id, Request $request): Response {
     $user = $this->findUser($id);
     $page = max(1, $request->query->getInt('page', 1));
+
+    // Logged because the list shows conversation titles, which are the
+    // opening words of what the participant typed.
+    $this->audit->log(self::AUDIT_USER_CONVERSATIONS_VIEWED, $user, ['page' => $page]);
+
     $paginator = $this->conversations->findByUserPaginated($user, $page, self::PER_PAGE);
     $items = iterator_to_array($paginator);
 
@@ -99,6 +133,8 @@ final class AdminController extends AbstractController {
   public function transcript(int $id): Response {
     $conversation = $this->conversations->find($id) ?? throw $this->createNotFoundException('Conversation not found.');
 
+    $this->audit->log(self::AUDIT_TRANSCRIPT_VIEWED, $conversation->getUser(), ['conversation_id' => $conversation->getId()]);
+
     return $this->render('@PixiekatEmpathicaChatbot/admin/user_transcript.html.twig', [
       'conversation' => $conversation,
       'messages' => $conversation->getMessages(),
@@ -111,6 +147,12 @@ final class AdminController extends AbstractController {
   #[Route('/conversation/{id}/export', name: 'empathica_chatbot_admin_transcript_export', methods: ['GET'], requirements: ['id' => '\d+'])]
   public function transcriptExport(int $id): Response {
     $conversation = $this->conversations->find($id) ?? throw $this->createNotFoundException('Conversation not found.');
+
+    // Logged before the download starts. A StreamedResponse writes after this
+    // action has returned, so there is no later point at which "it was sent"
+    // could be recorded; an interrupted download is still a disclosure
+    // attempt worth knowing about.
+    $this->audit->log(self::AUDIT_TRANSCRIPT_EXPORTED, $conversation->getUser(), ['conversation_id' => $conversation->getId()]);
 
     $rows = $this->messageQuery()
       ->andWhere('c = :conversation')
@@ -130,6 +172,9 @@ final class AdminController extends AbstractController {
   public function userExport(int $id): Response {
     $user = $this->findUser($id);
 
+    // Before streaming, as above.
+    $this->audit->log(self::AUDIT_USER_EXPORTED, $user);
+
     $rows = $this->messageQuery()
       ->andWhere('c.user = :user')
       ->setParameter('user', $user)
@@ -146,6 +191,9 @@ final class AdminController extends AbstractController {
    */
   #[Route('/export', name: 'empathica_chatbot_admin_export', methods: ['GET'])]
   public function exportAll(): Response {
+    // No target: this is everyone's data. Before streaming, as above.
+    $this->audit->log(self::AUDIT_ALL_EXPORTED);
+
     $rows = $this->messageQuery()->getQuery()->toIterable();
 
     return $this->streamMessagesCsv($rows, sprintf('chatbot-all-%s.csv', date('Ymd')), includeUser: true);

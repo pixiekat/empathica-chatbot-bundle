@@ -1,0 +1,25 @@
+# Audit-log sentences for the EMPATHICA chatbot bundle.
+#
+# Domain: messages, NOT empathica_chatbot. The SymfonyHelpers audit screen
+# looks every entry up as audit.action.<action key> in the messages domain
+# (see its AuditExtensionRuntime), so these have to live there to be found.
+# They're all under audit.action.chatbot.*, so they can't collide with the
+# host's own keys or SymfonyHelpers' built-in ones.
+#
+# Plain %placeholder% format, matching SymfonyHelpers' own audit sentences
+# (this file is deliberately not +intl-icu). Available placeholders:
+#   %actor%   who did it (the admin)
+#   %target%  whose data it was (always the participant; never the
+#             conversation, whose title is the participant's own words)
+#   %action%  the raw action key
+#
+# The action keys themselves are constants on Controller\AdminController.
+# A key with no sentence here still displays, using SymfonyHelpers'
+# audit.action.default.
+audit:
+  action:
+    chatbot.user_conversations.viewed: '%actor% viewed the chatbot conversation list for %target%'
+    chatbot.transcript.viewed: '%actor% read a chatbot conversation belonging to %target%'
+    chatbot.transcript.exported: '%actor% downloaded a chatbot conversation belonging to %target%'
+    chatbot.user_messages.exported: '%actor% downloaded every chatbot message from %target%'
+    chatbot.all_messages.exported: '%actor% downloaded every chatbot message from every user'
